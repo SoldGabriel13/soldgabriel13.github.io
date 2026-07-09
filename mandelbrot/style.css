@@ -1,0 +1,165 @@
+:root {
+    --main-green: #2e7d32;
+    --light-green: #a5d6a7;
+    --bg: #f4fdf6;
+    --text: #1b1b1b;
+}
+
+/* Remove number arrows */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+/* Navigation styled like template cards */
+nav {
+    background: var(--main-green);
+    padding: 1rem;
+    text-align: center;
+}
+
+nav a {
+    color: white;
+    text-decoration: none;
+    margin: 0 0.5rem;
+    font-size: 0.9rem !important;
+}
+
+nav a:hover {
+    text-decoration: underline;
+}
+
+
+/* Main control area */
+#all {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: white;
+    border: 2px solid var(--light-green);
+    border-radius: 10px;
+    text-align: center;
+}
+
+h1 {
+    color: var(--main-green);
+    margin-bottom: 1.5rem;
+}
+
+
+/* Labels */
+label {
+    display: block;
+    font-size: 1rem;
+    margin-top: 1rem;
+}
+
+
+/* Inputs */
+input {
+    background: white;
+    border: 2px solid var(--light-green);
+    border-radius: 10px;
+    padding: 0.7rem;
+    font-size: 1rem;
+    color: var(--text);
+    width: 220px;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--main-green);
+}
+
+
+/* Buttons */
+button {
+    background-color: var(--main-green);
+    border: none;
+    border-radius: 10px;
+    width: 200px;
+    height: 55px;
+    margin: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+
+/* Color buttons */
+#red,
+#orange,
+#yellow,
+#white,
+#green,
+#blue,
+#dye {
+    width: 55px;
+    height: 55px;
+}
+
+#red {
+    background-color: red;
+}
+
+#orange {
+    background-color: orange;
+}
+
+#yellow {
+    background-color: yellow;
+}
+
+#white {
+    background-color: white;
+    border: 2px solid #ccc;
+}
+
+#green {
+    background-color: limegreen;
+}
+
+#blue {
+    background-color: blue;
+}
+
+#dye {
+    background-image: url('https://media.istockphoto.com/id/1366265822/pt/vetorial/rainbow-blur-blend-abstract-background.jpg?s=612x612&w=0&k=20&c=0jYLuFqevsulBsiZBHsfR0_Q5JTBn8SLRGlA6inmoG4=');
+    background-size: cover;
+    background-position: center;
+}
+
+
+/* Canvas */
+#canvas {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 1rem;
+    background: white;
+    border: 2px solid var(--light-green);
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+}
+
+
+/* Youtube iframe */
+iframe {
+    display: block;
+    width: 450px;
+    height: 300px;
+    margin: 2rem auto;
+    border-radius: 10px;
+}

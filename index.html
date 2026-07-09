@@ -1,59 +1,142 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-    <base href="tree">
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mandelbrot Set Visualization</title>
-    <link rel="stylesheet" type="text/css" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Section</title>
+
+  <style>
+    :root {
+      --main-green: #2e7d32;
+      --light-green: #a5d6a7;
+      --bg: #f4fdf6;
+      --text: #1b1b1b;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: var(--main-green);
+      color: white;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+
+    header p {
+      margin-top: 0.5rem;
+      opacity: 0.9;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: white;
+      border: 2px solid var(--light-green);
+      border-radius: 10px;
+      padding: 1.2rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--main-green);
+      transform: translateY(-3px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    .card h3 {
+      margin: 0 0 0.5rem;
+      color: var(--main-green);
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+  </style>
+
 </head>
+
 <body>
-    <nav>
-        <a href="calculadora-v1/" style="font-size: 11px;">Calc version 1</a>
-        <a href="calculadora-2/" style="font-size: 11px;">Calc version 2</a>
-        <a href="hipertranslator/" style="font-size: 11px;">HiperTranslator</a>
-        <a href="img-to-text/" style="font-size: 11px;">Image to AsciiArt</a>
-        <a href="learn_morse/" style="font-size: 11px;">Learn Morse</a>
-    </nav>
-    <div id="all">
-        <h1>Mandelbrot Set Visualization</h1>
-        <label  for="resolution">Resolution(N por N):</label>
-        <input type="number" id="resolution" min="100" max="2000" value="500">
-        <br>
-        <label for="iterations">Iterations:</label>
-        <input type="number" id="iterations" min="100" max="1000" value="128">
-        <br>
-        <label for="zoom">Zoom:</label>
-        <input type="number" id="zoom" min="1" max="1000" value="1">
-        <br>
-        <label for="x_coor">Cordenada X do centro:</label>
-        <input type="number" id="xc" min="-2" max="1" value="-0.743643887037151">
-        <br>
-        <label for="y_coor">Cordenada Y do centro:</label>
-        <input type="number" id="yc" min="-1" max="1" value="0.13182590420533">
-        <br>
-        <button id="white"></button>
-        <button id="red"></button>
-        <button id="orange"></button>
-        <button id="yellow"></button>
-        <button id="green"></button>
-        <button id="blue"></button>
-        <button id="dye"></button>
-        <br>
-        <button id="generate">Generate</button>
-        <br>
-    </div>
-    <div id="canvas">
-        <canvas id="mandelbrotCanvas"></canvas>
-    </div>
-    <div style="padding:7% 0 0 0;position:relative;display: flex; justify-content: center;">
-        <iframe src="https://youtube.com/embed/Ybne_xsIWYk" frameborder="0" allow="autoplay;" style="position:absolute;top:0;left:0;width:30%;height:450%;" title="output">
-            
-        </iframe>
-    </div>
-    <script src="main.js"></script>
+
+  <header>
+    <h1>Random Little Projects</h1>
+    <p>My github page</p>
+  </header>
+
+  <main>
+    <div class="grid">
+
+  <a class="card" href="./mandelbrot/">
+    <h3>Mandelbrot</h3>
+    <p>A mandelbrot set explorer, with customizable colors, resolution and iterations</p>
+  </a>
+
+  <a class="card" href="./learn_morse/">
+    <h3>Learn Morse</h3>
+    <p>Morse code trainer with rating system</p>
+  </a>
+
+  <a class="card" href="./hipertranslator/">
+    <h3>Hypertranslator</h3>
+    <p>Translates a sentence through Nth languages and to portuguese</p>
+  </a>
+  
+  <a class="card" href="./img-to-text/">
+    <h3>Image To ASCII</h3>
+    <p>transforms an image into a string of ASCII characters</p>
+  </a>
+  
+  <a class="card" href="./calculadora-v1/">
+    <h3>Calculator 1</h3>
+    <p>...a calculator</p>
+  </a>
+  
+  <a class="card" href="./calculadora-2/">
+    <h3>Calculator 2</h3>
+    <p>...a another one</p>
+  </a>
+  
+
+  <!-- Add more as needed -->
+
+</div>
+
+  </main>
+
+  <footer>
+    <p>© 2026 Sold Gabriel • Hosted on GitHub Pages</p>
+  </footer>
+
 </body>
 </html>
-
-
-
