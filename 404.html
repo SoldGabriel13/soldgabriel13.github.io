@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>404 - Page Not Found</title>
+
+<style>
+:root {
+  --main-green: #2e7d32;
+  --light-green: #a5d6a7;
+  --bg: #f4fdf6;
+  --text: #1b1b1b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+header {
+  background: var(--main-green);
+  color: white;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+header p {
+  margin-top: .5rem;
+  opacity: .9;
+}
+
+main {
+  flex: 1;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 2rem;
+}
+
+.card {
+  background: white;
+  border: 2px solid var(--light-green);
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  padding: 2rem;
+
+  transition: .2s ease;
+}
+
+.card:hover {
+  border-color: var(--main-green);
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+}
+
+.error {
+  font-size: 5rem;
+  color: var(--main-green);
+  margin: 0;
+  line-height: 1;
+}
+
+h2 {
+  margin-top: .5rem;
+  color: var(--main-green);
+}
+
+p {
+  line-height: 1.6;
+}
+
+.button {
+  display: inline-block;
+  margin-top: 1.5rem;
+  padding: .8rem 1.4rem;
+
+  background: var(--main-green);
+  color: white;
+  text-decoration: none;
+
+  border-radius: 8px;
+  transition: .2s ease;
+}
+
+.button:hover {
+  background: #256428;
+}
+
+footer {
+  text-align: center;
+  padding: 1.5rem;
+  font-size: .85rem;
+  opacity: .6;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Oops!</h1>
+  <p>Looks like you've wandered off the map.</p>
+</header>
+
+<main>
+  <div class="card">
+    <h1 class="error">404</h1>
+
+    <h2>Page Not Found</h2>
+
+    <p>
+      The page you're looking for doesn't exist,
+      may have been moved, or the URL was typed incorrectly.
+    </p>
+
+    <a class="button" href="/Conlangs">← Back to Home</a>
+  </div>
+</main>
+
+<footer>
+  © 2026 Sold Gabriel • Hosted on GitHub Pages
+</footer>
+
+</body>
+</html>

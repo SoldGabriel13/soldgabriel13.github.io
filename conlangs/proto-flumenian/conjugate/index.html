@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Verb Conjugator</title>
+
+<style>
+:root {
+  --green: #2e7d32;
+  --light: #a5d6a7;
+  --bg: #f4fdf6;
+}
+
+body {
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  margin: 0;
+}
+
+header {
+  background: var(--green);
+  color: white;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+main {
+  max-width: 900px;
+  margin: auto;
+  padding: 1rem;
+}
+
+select, button {
+  padding: 0.6rem;
+  margin: 0.4rem 0;
+  width: 100%;
+  border: 2px solid var(--light);
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+button {
+  background: var(--green);
+  color: white;
+  cursor: pointer;
+}
+
+.card {
+  background: white;
+  border: 2px solid var(--light);
+  padding: 1rem;
+  margin-top: 1rem;
+  border-radius: 10px;
+}
+
+.result {
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: var(--green);
+}
+
+.small {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Verb Conjugator</h1>
+</header>
+
+<main>
+
+<select id="verbSelect"></select>
+
+<select id="tense">
+  <option value="pe">PRS</option>
+  <option value="be">PST</option>
+  <option value="te">FUT</option>
+  <option value="bube">REC.PST</option>
+  <option value="bute">NEAR.FUT</option>
+  <option value="bupe">HAB</option>
+  <option value="pu">PROG</option>
+  <option value="tu">IMP</option>
+</select>
+
+<label>
+  <input type="checkbox" id="taPrefix">
+  Add indirect prefix (ta-)
+</label>
+
+<label>
+  <input type="checkbox" id="intensity">
+  Add intensity infix (-ʃi-)
+</label>
+
+<button onclick="generate()">Generate</button>
+
+<div id="output"></div>
+
+</main>
+
+<script>
+
+let verbs = [];
+
+/* =========================
+   🔥 CUSTOM MEANINGS HERE
+   ========================= */
+const meanings = {
+
+  // aaupe "to eat"
+  "aaupe-pe": "to eat (present action)",
+  "aaupe-be": "ate (long ago)",
+  "aaupe-pu": "is eating (ongoing)",
+  "aaupe-bupe": "eats habitually",
+
+  // hiβipe "to drink"
+  "hiβipe-pe": "to drink",
+  "hiβipe-pu": "is drinking",
+  "hiβipe-be": "drank",
+
+  // example with ta-
+  "taaaupe-pe": "to consume indirectly / metaphorical eating"
+};
+
+function load() {
+
+  fetch("https://soldgabriel13.github.io/Conlangs/proto-flumenian/lexicon.json")
+    .then(r => r.json())
+    .then(data => {
+
+      verbs = data.filter(e => e.pos === "verb");
+
+      const sel = document.getElementById("verbSelect");
+
+      sel.innerHTML = verbs.map(v =>
+        `<option value="${v.Lemma}">${v.Lemma}</option>`
+      ).join("");
+
+    });
+
+}
+
+function getStem(lemma) {
+  return lemma.endsWith("pe") ? lemma.slice(0, -2) : lemma;
+}
+
+function applyMorph(lemma, tense, ta, intensity) {
+
+  let stem = getStem(lemma);
+
+  if (ta) stem = "ta" + stem;
+
+  let form = stem;
+
+  if (intensity) form += "ʃi";
+
+  form += tense;
+
+  return form;
+}
+
+function getMeaning(lemma, tense, ta) {
+
+  const key = (ta ? "ta" : "") + lemma + "-" + tense;
+  return meanings[key] || "";
+}
+
+function generate() {
+
+  const lemma = document.getElementById("verbSelect").value;
+  const tense = document.getElementById("tense").value;
+  const ta = document.getElementById("taPrefix").checked;
+  const intensity = document.getElementById("intensity").checked;
+
+  const form = applyMorph(lemma, tense, ta, intensity);
+  const meaning = getMeaning(lemma, tense, ta);
+
+  const out = document.getElementById("output");
+
+  const card = document.createElement("div");
+  card.className = "card";
+
+  card.innerHTML = `
+    <div class="result">${form}</div>
+    <div class="small">Base: ${lemma}</div>
+    <div class="small">Stem: ${getStem(lemma)}</div>
+    <div class="small">Tense: ${tense}</div>
+    <div class="small">ta-: ${ta}</div>
+    <div class="small">-ʃi-: ${intensity}</div>
+    ${meaning ? `<div><b>Meaning:</b> ${meaning}</div>` : ""}
+  `;
+
+  out.prepend(card);
+}
+
+load();
+
+</script>
+
+</body>
+</html>

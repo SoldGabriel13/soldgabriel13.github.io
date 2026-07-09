@@ -1,0 +1,1512 @@
+[
+  {
+    "Lemma": "-ʃi-",
+    "Gloss": "intensity inffix.",
+    "IPA": "ʃi",
+    "pos": "affix",
+    "Etymology": "",
+    "Notes": "tipe -> to walk\ntiʃipe -> to run",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "aaupe",
+    "Gloss": "to eat",
+    "IPA": "a:upe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "aauʃipe",
+    "Gloss": "to devour",
+    "IPA": "a:uʃipe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ad",
+    "Gloss": "to",
+    "IPA": "ad",
+    "pos": "prep",
+    "Etymology": "Borrowed from Latin: \"ad",
+    "Notes": "",
+    "Tags": "loanword",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "adihape",
+    "Gloss": "to bite",
+    "IPA": "adihape",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ahtʃe",
+    "Gloss": "what",
+    "IPA": "ahtʃe",
+    "pos": "pron",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ahtʃetuh",
+    "Gloss": "who",
+    "IPA": "ahtʃetuh",
+    "pos": "pron",
+    "Etymology": "ahʧe = what\ntʊh = person",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ame",
+    "Gloss": "that",
+    "IPA": "a'me",
+    "pos": "conj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "anuabɛ",
+    "Gloss": "ordered",
+    "IPA": "anuabɛ",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "anuabɛn",
+    "Gloss": "chaotic",
+    "IPA": "anuabɛn",
+    "pos": "noun",
+    "Etymology": "Derived from [anuabɛ] using suffix 'n'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "anuabɛ"
+  },
+  {
+    "Lemma": "at",
+    "Gloss": "I; me",
+    "IPA": "at",
+    "pos": "pron",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "atm",
+    "Gloss": "we; us",
+    "IPA": "",
+    "pos": "pron",
+    "Etymology": "Derived from [at] using suffix 'm'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "at"
+  },
+  {
+    "Lemma": "auɾbee",
+    "Gloss": "strong",
+    "IPA": "auɾbee",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "auɾbeen",
+    "Gloss": "weak",
+    "IPA": "",
+    "pos": "adj",
+    "Etymology": "Derived from [auɾbee] using suffix 'n'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "auɾbee"
+  },
+  {
+    "Lemma": "auɾid",
+    "Gloss": "dog",
+    "IPA": "auɾid",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "bdaɛ",
+    "Gloss": "again",
+    "IPA": "bdaɛ",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "beanta",
+    "Gloss": "tend; house; home",
+    "IPA": "bean'ta",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "beb",
+    "Gloss": "father",
+    "IPA": "beb",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "beɸət",
+    "Gloss": "fruit",
+    "IPA": "beːɸət",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "beβpe",
+    "Gloss": "to hunt",
+    "IPA": "beβpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "beβpeɾ",
+    "Gloss": "hunt",
+    "IPA": "beβpeɾ",
+    "pos": "noun",
+    "Etymology": "Derived from [beβpe] using suffix 'ɾ'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "beβpe"
+  },
+  {
+    "Lemma": "bhanʃa",
+    "Gloss": "morning",
+    "IPA": "b.ˈhan.ʃa",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "bɛamʃa",
+    "Gloss": "evening",
+    "IPA": "bɛa.m.ˈʃa",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "diɛtʂ",
+    "Gloss": "dark",
+    "IPA": "diɛʈʂ",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "diɛtʂub",
+    "Gloss": "night",
+    "IPA": "diɛʈʂub",
+    "pos": "noun",
+    "Etymology": "diɛʈʂ = dark\nɾub = time",
+    "Notes": "",
+    "Tags": "nature",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "diɛtʂɛt",
+    "Gloss": "moon",
+    "IPA": "diɛʈʂɛt",
+    "pos": "noun",
+    "Etymology": "diɛʈʂ = dark\nnɛt = sun",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "diɛtʂɸeɾt",
+    "Gloss": "snake; serpent",
+    "IPA": "",
+    "pos": "adj",
+    "Etymology": "Derived from [diɛꭧ] using suffix 'ɸeɾt'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "diɛꭧ"
+  },
+  {
+    "Lemma": "diɛtʂɾ",
+    "Gloss": "darkness",
+    "IPA": "",
+    "pos": "adj",
+    "Etymology": "Derived from [diɛꭧ] using suffix 'ɾ'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "diɛꭧ"
+  },
+  {
+    "Lemma": "diɛtʂβaɾ",
+    "Gloss": "black",
+    "IPA": "diɛʈʂβaɾ",
+    "pos": "adj",
+    "Etymology": "diɛʈʂ = dark\nβaɾ = color",
+    "Notes": "",
+    "Tags": "color",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "dpɛə",
+    "Gloss": "full",
+    "IPA": "dpɛə",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "dɛa",
+    "Gloss": "of",
+    "IPA": "dɛa",
+    "pos": "prep",
+    "Etymology": "",
+    "Notes": "this should NOT be used to indicade possession, only to decriptive meanings, such as \"full of\", \"made out of\", etc.\nthe glossing abbreviation is MAT, \"material",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "dɛniʂ",
+    "Gloss": "dirt; land; earth",
+    "IPA": "dɛniʂ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "dʂuanβu",
+    "Gloss": "Quick",
+    "IPA": "dʂuanβu",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "dʂuanβupatɾɛ",
+    "Gloss": "quickly",
+    "IPA": "dʂuanˌβupaˈtɾɛ",
+    "pos": "adv",
+    "Etymology": "Derived from [dʂuanβu] using suffix 'patɾɛ'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "dʂuanβu"
+  },
+  {
+    "Lemma": "eaɾ",
+    "Gloss": "he; him; she; her\n3rd person singular",
+    "IPA": "'eaɾ",
+    "pos": "pron",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "eaɾm",
+    "Gloss": "they",
+    "IPA": "",
+    "pos": "pron",
+    "Etymology": "Derived from [eaɾ] using suffix 'm'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "eaɾ"
+  },
+  {
+    "Lemma": "ei",
+    "Gloss": "hand; five",
+    "IPA": "ei",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "body; number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "eəɾə",
+    "Gloss": "there",
+    "IPA": "eəɾə",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "eɸi",
+    "Gloss": "ten; tenth",
+    "IPA": "eɸi",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "haʂana",
+    "Gloss": "heaven; paradise",
+    "IPA": "haʂana",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hbu",
+    "Gloss": "at(temporal)",
+    "IPA": "hbu",
+    "pos": "prep",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "heatɛβ",
+    "Gloss": "spear; weapon",
+    "IPA": "hea'tɛβ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hieɸpe",
+    "Gloss": "to have",
+    "IPA": "hieɸpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hinu",
+    "Gloss": "thing; object",
+    "IPA": "hinu",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hitʃpe",
+    "Gloss": "to stay; to keep",
+    "IPA": "hitʃpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hiβipe",
+    "Gloss": "to drink",
+    "IPA": "hiβipe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hutʂ",
+    "Gloss": "eye",
+    "IPA": "hutʂ",
+    "pos": "noun",
+    "Etymology": "Borrowed from Proto-Indo-European: \"h₃ókʷs",
+    "Notes": "",
+    "Tags": "loanword",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hutʂpe",
+    "Gloss": "to see; to look",
+    "IPA": "hutʂpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "həbe",
+    "Gloss": "mouth",
+    "IPA": "həbe",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "body",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "həipe",
+    "Gloss": "to be",
+    "IPA": "həipe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "hən",
+    "Gloss": "yes",
+    "IPA": "hən",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "həpe",
+    "Gloss": "to talk",
+    "IPA": "həpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "həpeɾ",
+    "Gloss": "speech; language",
+    "IPA": "həpeɾ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "həu",
+    "Gloss": "organ; body part",
+    "IPA": "həu",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "iaβɛ",
+    "Gloss": "God; Yahweh",
+    "IPA": "ia'βɛ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "iəɾə",
+    "Gloss": "here",
+    "IPA": "iəɾə",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "iəɾəɾub",
+    "Gloss": "now",
+    "IPA": "iəɾəɾub",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "iʂuepe",
+    "Gloss": "to think",
+    "IPA": "iʂuepe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "iʂuepeɾ",
+    "Gloss": "thought",
+    "IPA": "iʂuepeɾ",
+    "pos": "noun",
+    "Etymology": "Derived from [iʂuepe] using suffix 'ɾ'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "iʂuepe"
+  },
+  {
+    "Lemma": "muhat",
+    "Gloss": "hot",
+    "IPA": "muhat",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "mʂi",
+    "Gloss": "but",
+    "IPA": "mʂi",
+    "pos": "conj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nataɾpe",
+    "Gloss": "to love",
+    "IPA": "nataɾpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ne",
+    "Gloss": "no",
+    "IPA": "ne",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nenpe",
+    "Gloss": "to show",
+    "IPA": "nenpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "netʃ",
+    "Gloss": "dry",
+    "IPA": "netʃ",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "neuɸipe",
+    "Gloss": "to begin; to start",
+    "IPA": "neuɸipe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "neuɸipuɾ",
+    "Gloss": "beggining; start",
+    "IPA": "neuɸipuɾ",
+    "pos": "noun",
+    "Etymology": "derived from [neuɸipe], to begin\nliterally, a noun version of \"beggining",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "neʂupe",
+    "Gloss": "to divide; to separate",
+    "IPA": "neʂupe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nitʃ",
+    "Gloss": "air; wind",
+    "IPA": "ˈnitʃ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "nature",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nta",
+    "Gloss": "so; therefore",
+    "IPA": "nta",
+    "pos": "conj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nu",
+    "Gloss": "GEN",
+    "IPA": "nu",
+    "pos": "part",
+    "Etymology": "Borrowed from Japanese: \"の",
+    "Notes": "",
+    "Tags": "loanword",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nɛnɛ",
+    "Gloss": "mother",
+    "IPA": "nɛnɛ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nɛpe",
+    "Gloss": "to shine",
+    "IPA": "nɛpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nɛt",
+    "Gloss": "sun",
+    "IPA": "nɛ:t",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "nature",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nɛtɾub",
+    "Gloss": "day",
+    "IPA": "nɛtɾub",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nɛtɾubɸi",
+    "Gloss": "tomorrow",
+    "IPA": "nɛtɾubɸi",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "nɛtβaɾ",
+    "Gloss": "white",
+    "IPA": "nɛt'βaɾ",
+    "pos": "adj",
+    "Etymology": "nɛt = sun\nβaɾ = color",
+    "Notes": "",
+    "Tags": "color",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "pa",
+    "Gloss": "wood",
+    "IPA": "pa",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "patɾɛ",
+    "Gloss": "shaped; with shape",
+    "IPA": "patɾɛ",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "patɾɛpe",
+    "Gloss": "to shape",
+    "IPA": "",
+    "pos": "verb",
+    "Etymology": "Derived from [patɾɛ] using suffix 'pe'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "patɾɛ"
+  },
+  {
+    "Lemma": "patɾɛɾ",
+    "Gloss": "shape",
+    "IPA": "patɾɛɾ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "pei",
+    "Gloss": "eight; eighth",
+    "IPA": "pei",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "peupmi",
+    "Gloss": "ear",
+    "IPA": "peupmi",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "peupmipe",
+    "Gloss": "to hear",
+    "IPA": "peupmipe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "piɾmpe",
+    "Gloss": "to gather; to merge",
+    "IPA": "piɾmpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "pmɛi",
+    "Gloss": "face",
+    "IPA": "pmɛi",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ptea",
+    "Gloss": "head",
+    "IPA": "ptea",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "pəɛɾ",
+    "Gloss": "low; floor",
+    "IPA": "pəɛɾ",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "pɛ",
+    "Gloss": "three; third",
+    "IPA": "pɛ",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "pʂpe",
+    "Gloss": "to name; to call",
+    "IPA": "pʂpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "pʃa",
+    "Gloss": "in; on",
+    "IPA": "pʃa",
+    "pos": "prep",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ta-",
+    "Gloss": "indirectness preffix.",
+    "IPA": "ta",
+    "pos": "affix",
+    "Etymology": "",
+    "Notes": "see Basic Grammar for more details",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "tahə",
+    "Gloss": "because",
+    "IPA": "tahə",
+    "pos": "conj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "taɸi",
+    "Gloss": "food",
+    "IPA": "'taɸi",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "tei",
+    "Gloss": "six; sixth",
+    "IPA": "tei",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "teɾ",
+    "Gloss": "four; fourth",
+    "IPA": "teɾ",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "teʂ",
+    "Gloss": "hair",
+    "IPA": "teʂ",
+    "pos": "noun",
+    "Etymology": "Borrowed from Proto-Indo-European: \"*kes-",
+    "Notes": "",
+    "Tags": "loanword",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "tipe",
+    "Gloss": "to walk",
+    "IPA": "tipe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "tu",
+    "Gloss": "one; first",
+    "IPA": "tu",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "tuh",
+    "Gloss": "person",
+    "IPA": "tuh",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "tʃi",
+    "Gloss": "water",
+    "IPA": "tʃi",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "tʃipe",
+    "Gloss": "to bath",
+    "IPA": "tʃipe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "un",
+    "Gloss": "or",
+    "IPA": "un",
+    "pos": "conj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "uɾ",
+    "Gloss": "light",
+    "IPA": "uɾ",
+    "pos": "noun",
+    "Etymology": "Borrowed from Hebrew: \"אוֹר\" [ʔoːr]",
+    "Notes": "",
+    "Tags": "loanword",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "əma",
+    "Gloss": "this",
+    "IPA": "əma",
+    "pos": "pron",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "əmanɛtɾub",
+    "Gloss": "today",
+    "IPA": "əmanɛtɾub",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "əme",
+    "Gloss": "that",
+    "IPA": "əme",
+    "pos": "pron",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "əɸe",
+    "Gloss": "all",
+    "IPA": "'əːɸe",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɛ",
+    "Gloss": "and",
+    "IPA": "ɛː",
+    "pos": "conj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɛht",
+    "Gloss": "death",
+    "IPA": "ɛht",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɛhtatpe",
+    "Gloss": "to die",
+    "IPA": "ɛhtatpe",
+    "pos": "verb",
+    "Etymology": "Derived from [ɛht] using suffix 'atpe'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ɛht"
+  },
+  {
+    "Lemma": "ɛhteəɾpe",
+    "Gloss": "to kill",
+    "IPA": "ɛhteəɾpe",
+    "pos": "verb",
+    "Etymology": "Derived from [ɛht] using suffix 'eəɾpe'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ɛht"
+  },
+  {
+    "Lemma": "ɛhtuh",
+    "Gloss": "dead",
+    "IPA": "ɛh'tuh",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸe",
+    "Gloss": "leaf; plant",
+    "IPA": "ɸeː",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸei",
+    "Gloss": "seven; seventh",
+    "IPA": "ɸei",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸeɾt",
+    "Gloss": "lizard",
+    "IPA": "ɸeɾt",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "animal",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸeβaɾ",
+    "Gloss": "yellow; green",
+    "IPA": "ɸeβaɾ",
+    "pos": "adj",
+    "Etymology": "ɸe = leaf\nβaɾ = color",
+    "Notes": "",
+    "Tags": "color",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸeβnepe",
+    "Gloss": "to fly",
+    "IPA": "ɸeβnepe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸi",
+    "Gloss": "two; second",
+    "IPA": "ɸi",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸəpeɾu",
+    "Gloss": "empty",
+    "IPA": "ɸəpeɾu",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɸəpeɾuɾ",
+    "Gloss": "the empty",
+    "IPA": "",
+    "pos": "noun",
+    "Etymology": "Derived from [ɸəpeɾu] using suffix 'ɾ'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ɸəpeɾu"
+  },
+  {
+    "Lemma": "ɸɛpa",
+    "Gloss": "tree",
+    "IPA": "ˈɸɛpä",
+    "pos": "noun",
+    "Etymology": "it is formed by using the roots ɸe and pa, meaning leaf and wood respectively.",
+    "Notes": "",
+    "Tags": "nature",
+    "Related Words": "ɸe; pa"
+  },
+  {
+    "Lemma": "ɾau",
+    "Gloss": "good",
+    "IPA": "'ɾau",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾaun",
+    "Gloss": "bad",
+    "IPA": "ɾa'un",
+    "pos": "adj",
+    "Etymology": "Derived from [ɾau] using suffix 'n'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ɾau"
+  },
+  {
+    "Lemma": "ɾbamuɾɛ",
+    "Gloss": "family",
+    "IPA": "ɾbamu'ɾɛ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾe",
+    "Gloss": "you",
+    "IPA": "ɾeː",
+    "pos": "pron",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾei",
+    "Gloss": "nine; ninth",
+    "IPA": "ɾei",
+    "pos": "num",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾem",
+    "Gloss": "you (plural)",
+    "IPA": "",
+    "pos": "pron",
+    "Etymology": "Derived from [ɾe] using suffix 'm'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ɾe"
+  },
+  {
+    "Lemma": "ɾeɾ",
+    "Gloss": "fire",
+    "IPA": "ɾe:ɾ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾeɾβaɾ",
+    "Gloss": "red",
+    "IPA": "",
+    "pos": "adj",
+    "Etymology": "Derived from [ɾeɾ] using suffix 'βaɾ'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ɾeɾ"
+  },
+  {
+    "Lemma": "ɾiɾβ",
+    "Gloss": "clean",
+    "IPA": "ɾiːɾβ",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾiɾβn",
+    "Gloss": "dirty",
+    "IPA": "ɾiɾβn",
+    "pos": "adj",
+    "Etymology": "Derived from [ɾiɾβ] using suffix 'n'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ɾiɾβ"
+  },
+  {
+    "Lemma": "ɾub",
+    "Gloss": "time",
+    "IPA": "ɾub",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "nature",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾubɸi",
+    "Gloss": "again",
+    "IPA": "ɾubɸi",
+    "pos": "adv",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾutia",
+    "Gloss": "firmament; sky",
+    "IPA": "ɾu'tia",
+    "pos": "noun",
+    "Etymology": "Borrowed from hebrew: \"רָקִ֖יעַ",
+    "Notes": "",
+    "Tags": "loanword",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾəbpa",
+    "Gloss": "bird",
+    "IPA": "ɾəbpa",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾɛitəu",
+    "Gloss": "above",
+    "IPA": "ɾɛitəu",
+    "pos": "prep",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ɾɛpi",
+    "Gloss": "rock; stone",
+    "IPA": "'ɾɛpi",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ʂabɾi",
+    "Gloss": "place",
+    "IPA": "ʂabɾi",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ʂiɛ",
+    "Gloss": "river; lake",
+    "IPA": "ʂi'ɛ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "Can be used to refer to any body of water",
+    "Tags": "nature",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ʂiɛpe",
+    "Gloss": "to swim",
+    "IPA": "ʂiɛpe",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ʂiɛɸeɾt",
+    "Gloss": "fish",
+    "IPA": "ʂiɛ'ɸeɾt",
+    "pos": "noun",
+    "Etymology": "derived from [ʂɪɛ] and [ɸeɾt], literally river lizard",
+    "Notes": "",
+    "Tags": "animal",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ʂɾəɾa",
+    "Gloss": "big",
+    "IPA": "ʂɾəɾa",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ʂɾəɾan",
+    "Gloss": "small",
+    "IPA": "",
+    "pos": "adj",
+    "Etymology": "Derived from [ʂɾəɾa] using suffix 'n'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "ʂɾəɾa"
+  },
+  {
+    "Lemma": "ʃape",
+    "Gloss": "to sleep",
+    "IPA": "ʃape",
+    "pos": "verb",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "ʃueʃɛ",
+    "Gloss": "below",
+    "IPA": "ʃueʃɛ",
+    "pos": "prep",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "βa",
+    "Gloss": "many; a hundred",
+    "IPA": "βaː",
+    "pos": "pron",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "number",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "βan",
+    "Gloss": "few",
+    "IPA": "βa:n",
+    "pos": "pron",
+    "Etymology": "Derived from [βa] using suffix 'n'",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": "βa"
+  },
+  {
+    "Lemma": "βaubeɾ",
+    "Gloss": "different",
+    "IPA": "βaubeɾ",
+    "pos": "adj",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "βaɾ",
+    "Gloss": "color",
+    "IPA": "βa:ɾ",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  },
+  {
+    "Lemma": "βhae",
+    "Gloss": "child; son; daughter",
+    "IPA": "βhae",
+    "pos": "noun",
+    "Etymology": "",
+    "Notes": "",
+    "Tags": "",
+    "Related Words": ""
+  }
+]

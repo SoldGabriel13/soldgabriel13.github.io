@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conlangs</title>
+
+  <style>
+    :root {
+      --main-green: #2e7d32;
+      --light-green: #a5d6a7;
+      --bg: #f4fdf6;
+      --text: #1b1b1b;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: var(--main-green);
+      color: white;
+      padding: 2rem 1rem;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
+
+    header p {
+      margin-top: 0.5rem;
+      opacity: 0.9;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 1rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+
+    .card {
+      background: white;
+      border: 2px solid var(--light-green);
+      border-radius: 10px;
+      padding: 1.2rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: var(--main-green);
+      transform: translateY(-3px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    .card h3 {
+      margin: 0 0 0.5rem;
+      color: var(--main-green);
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.85rem;
+      opacity: 0.6;
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <header>
+    <h1>Conlangs</h1>
+    <p>A list of conlangs i made</p>
+  </header>
+
+  <main>
+    <div class="grid">
+
+
+  <a class="card" href="./proto-flumenian/">
+    <h3>Proto-Flumenian</h3>
+    <p>The first version of flumenian</p>
+  </a>
+
+
+  <a class="card" href="./old-flumenian/">
+    <h3>Old-Flumenian</h3>
+    <p>The second version of flumenian</p>
+  </a>
+
+
+  <a class="card" href="./middle-flumenian/">
+    <h3>Middle-Flumenian</h3>
+    <p>The third version of flumenian</p>
+  </a>
+
+  <a class="card" href="./flumenian/">
+    <h3>Modern Flumenian</h3>
+    <p>The last version of flumenian</p>
+  </a>
+
+
+</div>
+
+  </main>
+
+  <footer>
+    <p>© 2026 Sold Gabriel • Hosted on GitHub Pages</p>
+  </footer>
+
+</body>
+</html>

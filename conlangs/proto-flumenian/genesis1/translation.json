@@ -1,0 +1,268 @@
+{
+  "words": {
+    "hbu": {
+      "translation": "in",
+      "pronunciation": "hbu"
+    },
+
+    "neuɸipuɾ": {
+      "lemma": "neuɸipe",
+      "translation": "beginning",
+      "pronunciation": "neuɸipuɾ",
+      "notes": "Nominalization of the progressive form of the verb [to begin]; neuɸipe -> neuɸipu -> neuɸipuɾ"
+    },
+
+    "iaβɛ": {
+      "translation": "God",
+      "pronunciation": "iaβɛ"
+    },
+
+    "neuɸibe": {
+      "lemma": "neuɸipe",
+      "translation": "created",
+      "pronunciation": "neuɸibe",
+      "notes": "Past tense"
+    },
+
+    "haʂana": {
+      "translation": "Heavens",
+      "pronunciation": "haʂana"
+    },
+
+    "ɛ": {
+      "translation": "and",
+      "pronunciation": "ɛ"
+    },
+
+    "dɛniʂ": {
+      "translation": "earth",
+      "pronunciation": "dɛniʂ"
+    },
+
+    "həibe": {
+      "lemma": "həipe",
+      "translation": "was",
+      "pronunciation": "həibe",
+      "notes": "Past tense of [is]"
+    },
+
+    "patɾɛn": {
+      "lemma": "patɾɛ",
+      "translation": "shapeless",
+      "pronunciation": "patɾɛn",
+      "notes": "Antonym of patɾɛ, [shaped]; viz. patɾɛn, [shapeless]"
+    },
+
+    "anuabɛn": {
+      "lemma": "anuabɛ",
+      "translation": "chaotic",
+      "pronunciation": "anuabɛn"
+    },
+
+    "diɛtʂɾ": {
+      "lemma": "diɛtʂ",
+      "translation": "darkness",
+      "pronunciation": "diɛtʂɾ",
+      "notes": "Nominalization of diɛtʂ, 'dark'; viz. diɛtʂɾ, [darkness]"
+    },
+
+    "pʃa": {
+      "translation": "over",
+      "pronunciation": "p.'ʃa"
+    },
+
+    "ɸəpeɾuɾ": {
+      "translation": "empty",
+      "pronunciation": "ɸə.pe.'ɾuɾ",
+      "notes": "Although this word is part of the lexicon, it is derived of the adjective ɸəpeɾu, empty; ɸəpeɾu + ɾ"
+    },
+    
+    "nu": {
+      "translation": " 's ",
+      "pronunciation": "nu",
+      "notes": "Marks possession"
+    },
+    
+    "nitʃ": {
+      "translation": "wind",
+      "pronunciation": "'ni.t.ʃ",
+      "notes": "In this context, it means [spirit]"
+    },
+    
+    "ɸeβnebe": {
+      "lemma": "ɸeβnepe",
+      "translation": "hovered",
+      "pronunciation": "'ni.t.ʃ",
+      "notes": "It also means [flew]"
+    },
+
+    "tʃim": {
+      "lemma": "tʃi",
+      "translation": "waters",
+      "pronunciation": "t.'ʃim",
+      "notes": "Plural form of [water]"
+    },
+
+    "pmɛi": {
+      "translation": "face",
+      "pronunciation": "p.'mɛ.i"
+    },
+    
+    "həbe": {
+      "lemma": "həpe",
+      "translation": "said",
+      "pronunciation": "ˈhə.be",
+      "notes": "Past tense"
+    },
+    
+    "həitu": {
+      "translation": "be",
+      "pronunciation": "ˈhə.i.tu",
+      "notes": "Imperative"
+    },
+    
+    "uɾ": {
+      "translation": "light",
+      "pronunciation": "uɾ"
+    },
+
+    "hutʂbe": {
+      "lemma": "hutʂpe",
+      "translation": "saw",
+      "pronunciation": "hut.ˈʂbe",
+      "notes": "Past tense"
+    },
+
+    "ame": {
+      "translation": "that",
+      "pronunciation": "a.ˈme",
+      "notes": "Conjunction"
+    },
+    
+    "ɾau": {
+      "translation": "good",
+      "pronunciation": "ˈɾau"
+    },
+    
+    "neʂube": {
+      "lemma": "neʂupe",
+      "translation": "separated",
+      "pronunciation": "ne.ʂu.ˈbe",
+      "notes": "Past tense"
+    },
+
+    "pʂbe": {
+      "lemma": "pʂpe",
+      "translation": "called",
+      "pronunciation": "p.ˈʂbe",
+      "notes": "Past tense"
+    },
+
+    "nɛtɾub": {
+      "translation": "day",
+      "pronunciation": "nɛt.ˈɾub"
+    },
+    
+    "diɛtʂub": {
+      "translation": "night",
+      "pronunciation": "di.ɛt.ˈʂub"
+    },
+
+    "ɾutia": {
+      "translation": "firmament",
+      "pronunciation": "ɾu.'tia"
+    },
+    
+    "neʂutu": {
+      "lemma": "neʂupe",
+      "translation": "separate",
+      "pronunciation": "ne.'ʂu.tu",
+      "notes": "Imperative"
+    },
+    
+    "nta": {
+      "translation": "so",
+      "pronunciation": "n.'ta"
+    },
+
+    "əme": {
+      "translation": "that",
+      "pronunciation": "'ə.me",
+      "notes": "Pronoun"
+    },
+
+    "ʃueʃɛ": {
+      "translation": "bellow",
+      "pronunciation": "ʃu.e.'ʃɛ"
+    },
+
+    "ɾɛitəu": {
+      "translation": "above",
+      "pronunciation": "ɾɛ.i.'təu"
+    },
+
+    "ɸi": {
+      "translation": "second",
+      "pronunciation": "ɸi"
+    },
+
+    "ad": {
+      "translation": "to",
+      "pronunciation": "ad"
+    },
+
+    "bhanʃa": {
+      "translation": "morning",
+      "pronunciation": "b.han.'ʃa"
+    },
+
+    "bɛamʃa": {
+      "translation": "evening",
+      "pronunciation": "bɛ.'am.ʃa"
+    },
+
+    "piɾmte": {
+      "lemma": "piɾmpe",
+      "translation": "gather",
+      "pronunciation": "piɾ.'m.te",
+      "notes": "Imperative"
+    },
+
+    "tu": {
+      "translation": "one",
+      "pronunciation": "tu"
+    },
+
+    "ʂabɾi": {
+      "translation": "place",
+      "pronunciation": "'ʂa.bɾi"
+    },
+
+    "nente": {
+      "lemma": "nenpe",
+      "translation": "show",
+      "pronunciation": "ne.'n.te",
+      "notes": "Imperative"
+    },
+
+    "netʃ": {
+      "translation": "dry",
+      "pronunciation": "'net.ʃ"
+    },
+    
+    "piɾmpuɾ": {
+      "lemma": "piɾmpe",
+      "translation": "gathering",
+      "pronunciation": "piɾ.m.'puɾ",
+      "notes": "Nominalization of the progressive form of the verb [to gather]; piɾmpe -> piɾmpu -> piɾmpuɾ"
+    },
+    
+    "ʂiɛ": {
+      "translation": "ocean",
+      "pronunciation": "ʂi.'ɛ"
+    }
+  },
+
+  "overrides": {
+  }
+}

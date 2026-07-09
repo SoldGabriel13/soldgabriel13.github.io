@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Lexicon</title>
+
+<style>
+@font-face {
+    font-family: 'FlumenianFont';
+    src: url('https://soldgabriel13.github.io/Conlangs/proto-flumenian/genesis1/FlumenianScriptVf.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+:root {
+  --main-green: #2e7d32;
+  --light-green: #a5d6a7;
+  --bg: #f4fdf6;
+  --text: #1b1b1b;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+header {
+  background: var(--main-green);
+  color: white;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+main {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 1rem;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+}
+
+#search {
+  width: 100%;
+  padding: 0.9rem;
+  border: 2px solid var(--light-green);
+  border-radius: 10px;
+  font-size: 1rem;
+}
+
+#mode {
+  padding: 0.6rem;
+  border-radius: 8px;
+  border: 2px solid var(--light-green);
+  width: fit-content;
+}
+
+.stats {
+  opacity: 0.7;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: white;
+  border: 2px solid var(--light-green);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.card:hover {
+  border-color: var(--main-green);
+}
+
+.Lemma {
+  font-size: 1.4rem;
+  font-family:'FlumenianFont', serif;
+  font-weight: bold;
+  color: var(--main-green);
+}
+
+.ipa {
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.pos {
+  display: inline-block;
+  background: var(--light-green);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-top: 0.3rem;
+}
+
+.field {
+  margin-top: 0.5rem;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.tag {
+  background: #e8f5e9;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Lexicon</h1>
+</header>
+
+<main>
+
+<div class="controls">
+  <input id="search" placeholder="Search..." />
+
+  <select id="mode">
+    <option value="Lemma">Lemma</option>
+    <option value="Gloss">Gloss</option>
+  </select>
+
+  <div class="stats" id="stats">Loading...</div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+</main>
+
+<script>
+
+let entries = [];
+
+function matchField(value, query) {
+  return (value || "")
+    .toLowerCase()
+    .includes(query);
+}
+
+function render(list) {
+
+  const grid = document.getElementById("grid");
+
+  grid.innerHTML = list.map(e => `
+    <div class="card">
+
+      <div class="Lemma">${e.Lemma}</div>
+      <div class="ipa">${e.ipa || ""}</div>
+      <div>${e.Gloss || ""}</div>
+
+      <div class="pos">${e.pos || ""}</div>
+
+      ${e.etymology ? `<div class="field"><b>Etymology:</b> ${e.etymology}</div>` : ""}
+      ${e.notes ? `<div class="field"><b>Notes:</b> ${e.notes}</div>` : ""}
+
+      ${
+        e.related?.length
+        ? `<div class="field"><b>Related:</b> ${e.related.join(", ")}</div>`
+        : ""
+      }
+
+      ${
+        e.tags?.length
+        ? `<div class="tags">
+            ${e.tags.map(t => `<span class="tag">${t}</span>`).join("")}
+          </div>`
+        : ""
+      }
+
+    </div>
+  `).join("");
+}
+
+function filter() {
+
+  const q = document.getElementById("search").value.toLowerCase();
+  const mode = document.getElementById("mode").value;
+
+  const filtered = entries.filter(e => {
+
+    if (mode == "Lemma") {
+      return matchField(e.Lemma, q);
+    }
+
+    if (mode == "Gloss") {
+      return matchField(e.Gloss, q);
+    }
+
+    return true;
+  });
+
+  render(filtered);
+}
+
+async function load() {
+
+  const res = await fetch("https://soldgabriel13.github.io/Conlangs/proto-flumenian/lexicon.json");
+  entries = await res.json();
+
+  document.getElementById("stats").textContent =
+    `${entries.length} entries loaded`;
+
+  render(entries);
+}
+
+document.getElementById("search").addEventListener("input", filter);
+document.getElementById("mode").addEventListener("change", filter);
+
+load();
+
+</script>
+
+</body>
+</html>

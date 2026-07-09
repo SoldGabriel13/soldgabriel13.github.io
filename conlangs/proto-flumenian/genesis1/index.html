@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<title>Proto-Flumenian Bible</title>
+
+<style>
+    
+@font-face {
+    font-family: 'FlumenianFont';
+    src: url('FlumenianScriptVf.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+:root{
+    --main:#2e7d32;
+    --light:#a5d6a7;
+    --bg:#f4fdf6;
+}
+
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:var(--bg);
+}
+
+header{
+    background:var(--main);
+    color:white;
+    text-align:center;
+    padding:20px;
+}
+
+main{
+    max-width:900px;
+    margin:auto;
+    padding:30px;
+    font-size:1.35rem;
+    line-height:2;
+}
+
+.verse{
+    margin-bottom:18px;
+}
+
+.word{
+    cursor:help;
+    font-family:'FlumenianFont', serif;
+    border-bottom:1px dotted var(--main);
+    padding:2px;
+}
+
+.word:hover{
+    background:#dff5e0;
+}
+
+#tooltip{
+    position:fixed;
+    display:none;
+    max-width:300px;
+
+    background:white;
+
+    border:2px solid var(--main);
+
+    border-radius:8px;
+
+    padding:12px;
+
+    box-shadow:0 5px 20px rgba(0,0,0,.2);
+
+    z-index:1000;
+}
+
+#tooltip h3{
+    margin:0;
+    color:var(--main);
+}
+
+#tooltip hr{
+    border:none;
+    border-top:1px solid #ddd;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<h1>Proto-Flumenian Bible</h1>
+
+</header>
+
+<div style="max-width:900px;margin:auto;padding:15px 30px;">
+<label>Display:
+<select id="displayMode">
+<option value="original">Original script</option>
+<option value="latin">Latin transcription</option>
+<option value="english">English translation</option>
+</select></label>
+<label id="latinOptions" style="margin-left:20px;">Romanization:
+<select id="latinSystem">
+<option value="type1">Type I</option>
+<option value="type2">Type II</option>
+</select></label>
+</div>
+
+<main id="text"></main>
+
+<div id="tooltip"></div>
+
+<script>
+(async () => {
+
+const translation = await fetch("translation.json").then(r => r.json());
+
+const dictionary = translation.words;
+const overrides = translation.overrides ?? {};
+
+const verses = (await fetch("text.txt").then(r => r.text()))
+.trim()
+.split(/\r?\n/);
+
+const main = document.getElementById("text");
+const tooltip = document.getElementById("tooltip");
+const displayMode=document.getElementById("displayMode");
+const latinSystem=document.getElementById("latinSystem");
+
+function latinizeType1(word){
+return word.replace(/ɛ/g,"é").replace(/β/g,"v").replace(/ʂ/g,"s").replace(/ʃ/g,"c").replace(/ɾ/g,"r").replace(/ɸ/g,"f").replace(/ə/g,"â");
+}
+function latinizeType2(word){
+return word.replace(/ɛ/g,"E").replace(/β/g,"B").replace(/ʂ/g,"s").replace(/ʃ/g,"c").replace(/ɾ/g,"r").replace(/ɸ/g,"P").replace(/ə/g,"A");
+}
+
+
+let globalWordIndex = 0;
+
+function show(e, meta){
+
+    tooltip.innerHTML = `
+        <h3>${meta.word}</h3>
+
+        <hr>
+
+        ${
+            meta.lemma
+            ? `<b>Lemma</b><br>${meta.lemma}<br><br>`
+            : ""
+        }
+
+        <b>Translation</b><br>
+        ${meta.translation ?? "-"}
+
+        <br><br>
+
+        <b>Pronunciation</b><br>
+        /${meta.pronunciation ?? "-"}/
+
+        ${
+            meta.notes
+            ? `<br><br><b>Notes</b><br>${meta.notes}`
+            : ""
+        }
+    `;
+
+    tooltip.style.display = "block";
+
+    // Position relative to the viewport
+    tooltip.style.left = (e.clientX + 15) + "px";
+    tooltip.style.top = (e.clientY + 15) + "px";
+}
+
+function hide(){
+    tooltip.style.display = "none";
+}
+
+verses.forEach((verseText, verseIndex)=>{
+
+    const p = document.createElement("p");
+    p.className = "verse";
+    p.innerHTML = `<sup>${verseIndex+1}</sup> `;
+
+    verseText.split(/\s+/).forEach(displayWord=>{
+
+        const base = dictionary[displayWord] ?? {};
+
+        const meta = {
+            word: displayWord,
+            ...base,
+            ...(overrides[globalWordIndex] ?? {})
+        };
+
+        const span = document.createElement("span");
+        span.className = "word";
+        span.dataset.original=displayWord;
+        span.textContent = displayWord + " ";
+
+        if(base || overrides[globalWordIndex]){
+            span.addEventListener("mouseenter",e=>show(e,meta));
+            span.addEventListener("mouseleave",hide);
+            span.addEventListener("click",e=>show(e,meta));
+        }
+
+        globalWordIndex++;
+
+        p.appendChild(span);
+
+    });
+
+    main.appendChild(p);
+
+});
+
+document.body.addEventListener("click",e=>{
+    if(!e.target.classList.contains("word"))
+        hide();
+});
+
+
+function updateDisplay(){
+document.querySelectorAll(".word").forEach(span=>{
+const original=span.dataset.original;
+let out=original;
+if(displayMode.value==="original"){
+span.style.fontFamily="'FlumenianFont', serif";
+}else if(displayMode.value==="latin"){
+out=(latinSystem.value==="type1"?latinizeType1(original):latinizeType2(original));
+span.style.fontFamily='"Comic Sans MS","Comic Sans",cursive';
+}else{
+out=dictionary[original]?.translation??original;
+span.style.fontFamily='Arial,sans-serif';
+}
+span.textContent=out+" ";
+});
+document.getElementById("latinOptions").style.display=displayMode.value==="latin"?"inline":"none";
+}
+
+displayMode.addEventListener("change",updateDisplay);
+latinSystem.addEventListener("change",updateDisplay);
+updateDisplay();
+
+
+})();
+</script>
+</body>
+</html>
