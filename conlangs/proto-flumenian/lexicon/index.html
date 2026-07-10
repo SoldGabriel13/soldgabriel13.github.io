@@ -164,24 +164,19 @@ function render(list) {
     <div class="card">
 
       <div class="Lemma">${e.Lemma}</div>
-      <div class="ipa">${e.ipa || ""}</div>
+
+      ${e.IPA ? `<div class="ipa">/${e.IPA}/</div>` : ""}
+
       <div>${e.Gloss || ""}</div>
 
       <div class="pos">${e.pos || ""}</div>
 
-      ${e.etymology ? `<div class="field"><b>Etymology:</b> ${e.etymology}</div>` : ""}
-      ${e.notes ? `<div class="field"><b>Notes:</b> ${e.notes}</div>` : ""}
-
-      ${
-        e.related?.length
-        ? `<div class="field"><b>Related:</b> ${e.related.join(", ")}</div>`
-        : ""
-      }
-
-      ${
-        e.tags?.length
+      ${e.Tags
         ? `<div class="tags">
-            ${e.tags.map(t => `<span class="tag">${t}</span>`).join("")}
+            ${e.Tags.split(";")
+              .filter(t => t.trim())
+              .map(t => `<span class="tag">${t.trim()}</span>`)
+              .join("")}
           </div>`
         : ""
       }
