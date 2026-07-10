@@ -124,12 +124,18 @@ const meanings = {
   "hiβipe-be": "drank",
 
   // example with ta-
-  "taaaupe-pe": "to consume indirectly / metaphorical eating"
+  "taaaupe-pe": "eat because of",
+  "taaaupe-be": "ate because of",
+  "taaaupe-te": "will eat because of"
+  //"taaauʃipe-pe": "devour because of",
+  //"taaaucipe-be": "devoured because of",
+  //"taaaucipe-te": "will devour because of"
+
 };
 
 function load() {
 
-  fetch("https://soldgabriel13.github.io/Conlangs/proto-flumenian/lexicon.json")
+  fetch("https://soldgabriel13.github.io/conlangs/proto-flumenian/lexicon.json")
     .then(r => r.json())
     .then(data => {
 
