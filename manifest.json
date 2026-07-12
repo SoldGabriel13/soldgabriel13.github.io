@@ -1,0 +1,20 @@
+{
+  "name": "Sold Gabriel's app ",
+  "short_name": "SoldGabriels",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2e7d32",
+  "icons": [
+    {
+      "src": "/icons/me.png",
+      "sizes": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/me-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    }
+  ]
+}
