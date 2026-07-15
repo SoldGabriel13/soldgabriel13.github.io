@@ -1,229 +1,492 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lexicon</title>
+    <link rel="icon" type="image/png" href="/icons/favicon.png" />
 
-<title>Lexicon</title>
-<link rel="icon" type="image/png" href="/icons/favicon.png">
+    <style>
+        /* ─── fonts & variables ─────────────────────────────────────────── */
+        @font-face {
+            font-family: 'FlumenianFont';
+            src: url('/conlangs/proto-flumenian/genesis1/FlumenianScriptVf.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+        }
+        :root {
+            --main-green: #2e7d32;
+            --light-green: #a5d6a7;
+            --bg: #f4fdf6;
+            --text: #1b1b1b;
+        }
 
-<style>
-@font-face {
-    font-family: 'FlumenianFont';
-    src: url('/conlangs/proto-flumenian/genesis1/FlumenianScriptVf.ttf') format('truetype');
-    font-weight: normal;
-    font-style: normal;
-}
-:root {
-  --main-green: #2e7d32;
-  --light-green: #a5d6a7;
-  --bg: #f4fdf6;
-  --text: #1b1b1b;
-}
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
 
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
+        header {
+            background: var(--main-green);
+            color: white;
+            text-align: center;
+            padding: 2rem 1rem;
+        }
 
-header {
-  background: var(--main-green);
-  color: white;
-  text-align: center;
-  padding: 2rem 1rem;
-}
+        main {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 1rem;
+        }
 
-main {
-  max-width: 1100px;
-  margin: 2rem auto;
-  padding: 1rem;
-}
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            margin-bottom: 1rem;
+        }
 
-.controls {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-  margin-bottom: 1rem;
-}
+        #search {
+            width: 100%;
+            padding: 0.9rem;
+            border: 2px solid var(--light-green);
+            border-radius: 10px;
+            font-size: 1rem;
+        }
 
-#search {
-  width: 100%;
-  padding: 0.9rem;
-  border: 2px solid var(--light-green);
-  border-radius: 10px;
-  font-size: 1rem;
-}
+        #mode {
+            padding: 0.6rem;
+            border-radius: 8px;
+            border: 2px solid var(--light-green);
+            width: fit-content;
+        }
 
-#mode {
-  padding: 0.6rem;
-  border-radius: 8px;
-  border: 2px solid var(--light-green);
-  width: fit-content;
-}
+        .stats {
+            opacity: 0.7;
+        }
 
-.stats {
-  opacity: 0.7;
-}
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1rem;
+        }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1rem;
-}
+        .card {
+            background: white;
+            border: 2px solid var(--light-green);
+            border-radius: 10px;
+            padding: 1rem;
+            position: relative;
+            transition: border-color 0.2s;
+        }
 
-.card {
-  background: white;
-  border: 2px solid var(--light-green);
-  border-radius: 10px;
-  padding: 1rem;
-}
+        .card:hover {
+            border-color: var(--main-green);
+        }
 
-.card:hover {
-  border-color: var(--main-green);
-}
+        .Lemma {
+            font-size: 1.4rem;
+            font-family: 'FlumenianFont', serif;
+            font-weight: bold;
+            color: var(--main-green);
+        }
 
-.Lemma {
-  font-size: 1.4rem;
-  font-family:'FlumenianFont', serif;
-  font-weight: bold;
-  color: var(--main-green);
-}
+        .ipa {
+            font-style: italic;
+            opacity: 0.8;
+        }
 
-.ipa {
-  font-style: italic;
-  opacity: 0.8;
-}
+        .pos {
+            display: inline-block;
+            background: var(--light-green);
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            margin-top: 0.3rem;
+        }
 
-.pos {
-  display: inline-block;
-  background: var(--light-green);
-  padding: 0.2rem 0.5rem;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  margin-top: 0.3rem;
-}
+        .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.3rem;
+        }
 
-.field {
-  margin-top: 0.5rem;
-}
+        .tag {
+            background: #e8f5e9;
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+        }
 
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
+        /* ─── play button ────────────────────────────────────────────────── */
+        .play-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.7rem;
+            padding: 0.35rem 0.85rem 0.35rem 0.6rem;
+            border: 2px solid var(--main-green);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--main-green);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, transform 0.1s;
+        }
 
-.tag {
-  background: #e8f5e9;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-}
-</style>
+        .play-btn:hover {
+            background: var(--main-green);
+            color: white;
+        }
+
+        .play-btn:active {
+            transform: scale(0.94);
+        }
+
+        .play-btn:disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .play-btn.playing {
+            background: var(--main-green);
+            color: white;
+            animation: pulse 0.8s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4);
+            }
+            100% {
+                box-shadow: 0 0 0 6px rgba(46, 125, 50, 0);
+            }
+        }
+
+        /* ─── toast ──────────────────────────────────────────────────────── */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            padding: 0.6rem 1.4rem;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 999;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
 </head>
 
 <body>
 
-<header>
-  <h1>Lexicon</h1>
-</header>
+    <header>
+        <h1>Lexicon</h1>
+    </header>
 
-<main>
+    <main>
+        <div class="controls">
+            <input id="search" placeholder="Search…" />
+            <select id="mode">
+                <option value="Lemma">Lemma</option>
+                <option value="Gloss">Gloss</option>
+            </select>
+            <div class="stats" id="stats">Loading…</div>
+        </div>
+        <div class="grid" id="grid"></div>
+    </main>
 
-<div class="controls">
-  <input id="search" placeholder="Search..." />
+    <div class="toast" id="toast"></div>
 
-  <select id="mode">
-    <option value="Lemma">Lemma</option>
-    <option value="Gloss">Gloss</option>
-  </select>
+    <script>
+        // ════════════════════════════════════════════════════════════════
+        //  CUSTOM PHONEME SUBSTITUTIONS  (complex symbols)
+        // ════════════════════════════════════════════════════════════════
+        const PHONEME_MAP = {
+            'ɸ': 'F',
+            'β': 'BH',
+            'ʈʂ': 'T SS',
+            'tʃ': 'T SH',
+            'dʒ': 'D ZH',
+            'ts': 'T S',
+            'dz': 'D Z',
+            'ʃ': 'SH',
+            'ʒ': 'ZH',
+            'θ': 'TH',
+            'ð': 'DH',
+            'x': 'VELH',
+            'ɣ': 'VELR',
+            'ŋ': 'NG',
+            'ʂ': 'SS',
+            // Vowels (some are also handled for length, but we keep them for mapping)
+            'æ': 'AE',
+            'ɑ': 'ah',
+            'ɛ': 'EH',
+            'ɪ': 'IH',
+            'ʊ': 'OO',
+            'ɔ': 'OH',
+            'ə': 'UH',
+            'ɚ': 'ER',
+            // Rhotics
+            'ɾ': 'r-50 D r',
+            'ɹ': 'R',
+            'ʁ': 'UVR',
+            // Laterals
+            'ɫ': 'DL',
+            'l': 'L',
+            // Stress marks (ignored)
+            '.': '',
+            '\'': ' ',
+            'ˈ': '',
+            'ˌ': '',
+            'ˑ': '',
+            // ─── ADD THIS: keep the inserted "r" from length rule lowercase ──
+            'r': '( DX DX DX DX )',
+        };
 
-  <div class="stats" id="stats">Loading...</div>
-</div>
+        // ─── TOKENISE & SUBSTITUTE ──────────────────────────────────────
+        function substitutePhonemes(ipa) {
+            if (!ipa) return '';
 
-<div class="grid" id="grid"></div>
+            // 1) Tokenize: multi‑char symbols first, then single chars
+            const tokens = [];
+            let i = 0;
+            const len = ipa.length;
 
-</main>
+            // Multi‑character keys from PHONEME_MAP (longest first)
+            const multiKeys = Object.keys(PHONEME_MAP)
+                .filter(k => k.length > 1)
+                .sort((a, b) => b.length - a.length);
 
-<script>
+            // Also treat length markers as separate tokens (they are single char)
+            const lengthMarkers = [':', 'ː'];
 
-let entries = [];
+            while (i < len) {
+                let matched = false;
 
-function matchField(value, query) {
-  return (value || "")
-    .toLowerCase()
-    .includes(query);
-}
+                // Try multi‑char symbol
+                for (const key of multiKeys) {
+                    if (ipa.startsWith(key, i)) {
+                        tokens.push(key);
+                        i += key.length;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (matched) continue;
 
-function render(list) {
+                // Single character (including length markers, stress marks, etc.)
+                tokens.push(ipa[i]);
+                i++;
+            }
 
-  const grid = document.getElementById("grid");
+            // 2) Process tokens: map each, and handle length markers
+            const processed = [];
 
-  grid.innerHTML = list.map(e => `
-    <div class="card">
+            for (let idx = 0; idx < tokens.length; idx++) {
+                const token = tokens[idx];
 
-      <div class="Lemma">${e.Lemma}</div>
+                // If this token is a length marker, wrap the previous processed token
+                if (lengthMarkers.includes(token)) {
+                    if (processed.length > 0) {
+                        // Get the last processed token (which is the mapped phoneme)
+                        const last = processed.pop();
+                        // Wrap it with r+50 ... r
+                        processed.push('r+50');
+                        processed.push(last);
+                        processed.push('r');
+                    }
+                    // Else: ignore the marker (no preceding phoneme)
+                    continue;
+                }
 
-      ${e.IPA ? `<div class="ipa">/${e.IPA}/</div>` : ""}
+                // Regular token: map it
+                let mapped = PHONEME_MAP[token];
+                if (mapped === undefined) {
+                    // If token is a single character, uppercase it
+                    if (token.length === 1) {
+                        mapped = token.toUpperCase();
+                    } else {
+                        // Keep unknown multi-char as-is (unlikely)
+                        mapped = token;
+                    }
+                }
+                // Skip empty mappings (e.g., stress marks)
+                if (mapped !== '') {
+                    processed.push(mapped);
+                }
+            }
 
-      <div>${e.Gloss || ""}</div>
+            return processed.join(' ');
+        }
 
-      <div class="pos">${e.pos || ""}</div>
+        // ─── SPEAK FUNCTION LOADER ──────────────────────────────────────
+        let _speakFn = null;
+        let _speakPromise = null;
 
-      ${e.Tags
-        ? `<div class="tags">
-            ${e.Tags.split(";")
-              .filter(t => t.trim())
-              .map(t => `<span class="tag">${t.trim()}</span>`)
-              .join("")}
-          </div>`
-        : ""
-      }
+        function getSpeak() {
+            if (_speakFn) return Promise.resolve(_speakFn);
+            if (_speakPromise) return _speakPromise;
 
-    </div>
-  `).join("");
-}
+            _speakPromise = (async () => {
+                if (typeof window.speak === 'function') {
+                    _speakFn = window.speak;
+                    return _speakFn;
+                }
+                try {
+                    const mod = await import('./src/main.js?v=0.5.0');
+                    const fn = mod.speak || mod.default || null;
+                    if (typeof fn === 'function') {
+                        _speakFn = fn;
+                        window.speak = fn;
+                        return _speakFn;
+                    }
+                    throw new Error('speak not found');
+                } catch (err) {
+                    console.warn('Could not load speak():', err);
+                    _speakFn = (text) => {
+                        const msg = `[speak fallback] ${text}`;
+                        console.log(msg);
+                        showToast(`🔊 ${text}`);
+                    };
+                    return _speakFn;
+                }
+            })();
+            return _speakPromise;
+        }
 
-function filter() {
+        // ─── TOAST ────────────────────────────────────────────────────────
+        let toastTimer = null;
 
-  const q = document.getElementById("search").value.toLowerCase();
-  const mode = document.getElementById("mode").value;
+        function showToast(msg, duration = 2000) {
+            const el = document.getElementById('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+        }
 
-  const filtered = entries.filter(e => {
+        // ─── PLAY AUDIO ──────────────────────────────────────────────────
+        async function playAudio(ipa, buttonEl) {
+            if (!ipa) {
+                showToast('No IPA to speak', 1200);
+                return;
+            }
+            if (buttonEl && buttonEl.classList.contains('playing')) return;
 
-    if (mode == "Lemma") {
-      return matchField(e.Lemma, q);
-    }
+            const processed = substitutePhonemes(ipa);
+            if (!processed) {
+                showToast('No phonemes to speak', 1200);
+                return;
+            }
 
-    if (mode == "Gloss") {
-      return matchField(e.Gloss, q);
-    }
+            try {
+                if (buttonEl) {
+                    buttonEl.classList.add('playing');
+                    buttonEl.disabled = true;
+                    buttonEl.querySelector('.label').textContent = '…';
+                }
 
-    return true;
-  });
+                const speak = await getSpeak();
+                const result = speak(processed);
+                if (result && typeof result.then === 'function') {
+                    await result;
+                }
+            } catch (err) {
+                console.error('Playback error:', err);
+                showToast(`⚠️ ${err.message || 'Playback failed'}`, 2500);
+            } finally {
+                if (buttonEl) {
+                    buttonEl.classList.remove('playing');
+                    buttonEl.disabled = false;
+                    buttonEl.querySelector('.label').textContent = 'Play';
+                }
+            }
+        }
 
-  render(filtered);
-}
+        window.playAudio = playAudio;
 
-async function load() {
+        // ─── RENDER & FILTER ────────────────────────────────────────────
+        let entries = [];
 
-  const res = await fetch("/conlangs/proto-flumenian/lexicon.json");
-  entries = await res.json();
+        function matchField(value, query) {
+            return (value || '').toLowerCase().includes(query);
+        }
 
-  document.getElementById("stats").textContent =
-    `${entries.length} entries loaded`;
+        function render(list) {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = list.map((e) => {
+                const ipa = e.IPA || '';
+                const hasIpa = Boolean(ipa.trim());
+                return `
+              <div class="card">
+                <div class="Lemma">${e.Lemma || ''}</div>
+                ${ipa ? `<div class="ipa">/${ipa}/</div>` : ''}
+                <div>${e.Gloss || ''}</div>
+                <div class="pos">${e.pos || ''}</div>
+                ${e.Tags
+                    ? `<div class="tags">
+                        ${e.Tags.split(';')
+                          .filter(t => t.trim())
+                          .map(t => `<span class="tag">${t.trim()}</span>`)
+                          .join('')}
+                      </div>`
+                    : ''
+                }
+                <button class="play-btn" 
+                        data-ipa="${ipa.replace(/"/g, '&quot;')}"
+                        ${!hasIpa ? 'disabled' : ''}
+                        onclick="window.playAudio(this.dataset.ipa, this)">
+                  <span class="icon">▶</span>
+                  <span class="label">${hasIpa ? 'Play' : 'No IPA'}</span>
+                </button>
+              </div>
+            `;
+            }).join('');
+        }
 
-  render(entries);
-}
+        function filter() {
+            const q = document.getElementById('search').value.toLowerCase();
+            const mode = document.getElementById('mode').value;
+            const filtered = entries.filter((e) => {
+                if (mode === 'Lemma') return matchField(e.Lemma, q);
+                if (mode === 'Gloss') return matchField(e.Gloss, q);
+                return true;
+            });
+            render(filtered);
+        }
 
-document.getElementById("search").addEventListener("input", filter);
-document.getElementById("mode").addEventListener("change", filter);
+        async function load() {
+            try {
+                const res = await fetch('/conlangs/proto-flumenian/lexicon.json');
+                entries = await res.json();
+                document.getElementById('stats').textContent =
+                    `${entries.length} entries loaded`;
+                render(entries);
+            } catch (err) {
+                console.error('Failed to load lexicon:', err);
+                document.getElementById('stats').textContent = '⚠️ Failed to load';
+            }
+        }
 
-load();
+        document.getElementById('search').addEventListener('input', filter);
+        document.getElementById('mode').addEventListener('change', filter);
+        load();
 
-</script>
-<script type="module" src="src/main.js?v=0.5.0"></script>
+        // Pre‑load speak()
+        getSpeak().catch(() => {});
+    </script>
+
+    <script type="module" src="src/main.js?v=0.5.0"></script>
 </body>
 </html>
