@@ -120,6 +120,105 @@
             font-size: 0.8rem;
         }
 
+        /* ─── conjugation dropdown ────────────────────────────────────── */
+        .conjugation-section {
+            margin-top: 0.8rem;
+            border-top: 1px solid var(--light-green);
+            padding-top: 0.8rem;
+        }
+
+        .conjugation-toggle {
+            background: none;
+            border: none;
+            color: var(--main-green);
+            font-weight: bold;
+            cursor: pointer;
+            padding: 0.3rem 0;
+            width: 100%;
+            text-align: left;
+            font-size: 0.95rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .conjugation-toggle:hover {
+            color: #1b5e20;
+        }
+
+        .conjugation-toggle .arrow {
+            transition: transform 0.2s;
+            display: inline-block;
+        }
+
+        .conjugation-toggle .arrow.open {
+            transform: rotate(90deg);
+        }
+
+        .conjugation-list {
+            display: none;
+            margin-top: 0.5rem;
+            background: #f8fdf9;
+            border-radius: 8px;
+            padding: 0.5rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .conjugation-list.open {
+            display: block;
+        }
+
+        .conjugation-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.3rem 0.5rem;
+            border-bottom: 1px solid #e8f5e9;
+            font-size: 0.9rem;
+        }
+
+        .conjugation-item:last-child {
+            border-bottom: none;
+        }
+
+        .conjugation-item .form {
+            font-family: 'FlumenianFont', serif;
+            color: var(--main-green);
+        }
+
+        .conjugation-item .form-ipa {
+            font-style: italic;
+            opacity: 0.7;
+            font-size: 0.85rem;
+        }
+
+        .conjugation-item .play-btn-small {
+            background: none;
+            border: 1px solid var(--main-green);
+            border-radius: 999px;
+            padding: 0.15rem 0.6rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            color: var(--main-green);
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .conjugation-item .play-btn-small:hover {
+            background: var(--main-green);
+            color: white;
+        }
+
+        .conjugation-item .play-btn-small:disabled {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .conjugation-item .play-btn-small.playing {
+            background: var(--main-green);
+            color: white;
+        }
+
         /* ─── play button ────────────────────────────────────────────────── */
         .play-btn {
             display: inline-flex;
@@ -185,6 +284,15 @@
         .toast.show {
             opacity: 1;
         }
+
+        .conjugation-group-label {
+            font-weight: bold;
+            color: #2e7d32;
+            margin: 0.4rem 0 0.2rem 0;
+            font-size: 0.85rem;
+            border-bottom: 1px dashed #a5d6a7;
+            padding-bottom: 0.2rem;
+        }
     </style>
 </head>
 
@@ -210,8 +318,174 @@
 
     <script>
         // ════════════════════════════════════════════════════════════════
-        //  CUSTOM PHONEME SUBSTITUTIONS  (complex symbols)
+        //  CONFIGURATION
         // ════════════════════════════════════════════════════════════════
+        // List of lemmas that should NOT have certain inflections generated
+        // Format: { lemma: { noTa: true, noCi: true, noPlural: true } }
+        const INFLECTION_EXCEPTIONS = {
+            // Verbs that already have 'ta-' prefix - these should NOT get indirect forms
+            'tahutspe': { noTa: true, noCi: false, noPlural: true },
+            'tahutscipe': { noTa: true, noCi: false, noPlural: true },
+            // Verbs that already have '-ci-' infix - these should NOT get intensive forms
+            'hutscipe': { noTa: false, noCi: true, noPlural: true },
+            // Add more as needed based on your lexicon
+        };
+
+        // Verb conjugation patterns
+        const TENSE_SUFFIXES = {
+            'present': 'pe',
+            'past': 'be',
+            'future': 'te',
+            'habitual': 'bupe',
+            'recent_past': 'bube',
+            'near_future': 'bute',
+            'continuous_present': 'pu',
+            'imperative': 'tu'
+        };
+
+        const INDIRECT_PREFIX = 'ta';
+        const INTENSITY_INFIX = 'ci';
+
+        // ─── Helper functions ─────────────────────────────────────────────
+        function getStem(lemma) {
+            // Remove the present tense suffix '-pe' to get the stem
+            // The stem is the part before "-pe"
+            if (lemma.endsWith('pe')) {
+                return lemma.slice(0, -2);
+            }
+            // For verbs that might already have ta- or ci-, still remove -pe
+            for (const suffix of Object.values(TENSE_SUFFIXES)) {
+                if (lemma.endsWith(suffix)) {
+                    return lemma.slice(0, -suffix.length);
+                }
+            }
+            return lemma;
+        }
+
+        function generateConjugations(lemma, ipa) {
+            // Get the stem by removing '-pe' (the present tense suffix)
+            const stem = getStem(lemma);
+            const exceptions = INFLECTION_EXCEPTIONS[lemma] || {};
+            const conjugations = [];
+
+            // Check if this is a verb (ends with -pe or is in exceptions)
+            const isVerb = lemma.endsWith('pe') || 
+                           Object.keys(INFLECTION_EXCEPTIONS).includes(lemma);
+
+            if (!isVerb) return [];
+
+            // For each tense
+            for (const [tense, suffix] of Object.entries(TENSE_SUFFIXES)) {
+                // Base form: stem + tense suffix
+                const baseForm = stem + suffix;
+                const ipaBase = generateIPA(stem, suffix, ipa, false, false);
+
+                // Regular form (direct)
+                conjugations.push({
+                    form: baseForm,
+                    ipa: ipaBase,
+                    label: tense.replace('_', ' '),
+                    type: 'direct',
+                    group: 'direct'
+                });
+
+                // Indirect (ta- prefix) - only if not excluded
+                if (!exceptions.noTa) {
+                    const indirectForm = INDIRECT_PREFIX + baseForm;
+                    const ipaIndirect = generateIPA(stem, suffix, ipa, true, false);
+                    conjugations.push({
+                        form: indirectForm,
+                        ipa: ipaIndirect,
+                        label: tense.replace('_', ' '),
+                        type: 'indirect',
+                        group: 'indirect'
+                    });
+                }
+
+                // Intensive (-ci- infix before suffix) - only if not excluded
+                if (!exceptions.noCi) {
+                    const intensiveForm = stem + INTENSITY_INFIX + suffix;
+                    const ipaIntensive = generateIPA(stem, suffix, ipa, false, true);
+                    conjugations.push({
+                        form: intensiveForm,
+                        ipa: ipaIntensive,
+                        label: tense.replace('_', ' '),
+                        type: 'intensive',
+                        group: 'intensive'
+                    });
+                }
+
+                // Indirect + Intensive - only if neither is excluded
+                if (!exceptions.noTa && !exceptions.noCi) {
+                    const indirectIntensiveForm = INDIRECT_PREFIX + stem + INTENSITY_INFIX + suffix;
+                    const ipaIndirectIntensive = generateIPA(stem, suffix, ipa, true, true);
+                    conjugations.push({
+                        form: indirectIntensiveForm,
+                        ipa: ipaIndirectIntensive,
+                        label: tense.replace('_', ' '),
+                        type: 'indirect_intensive',
+                        group: 'indirect_intensive'
+                    });
+                }
+            }
+
+            return conjugations;
+        }
+
+        function generateIPA(stem, suffix, originalIpa, indirect, intensive) {
+            if (!originalIpa) return '';
+
+            // Get the IPA for the stem by removing '-pe' from the end
+            let stemIpa = originalIpa;
+            if (originalIpa.endsWith('pe')) {
+                stemIpa = originalIpa.slice(0, -2);
+            } else {
+                // Try other suffixes
+                for (const val of Object.values(TENSE_SUFFIXES)) {
+                    if (originalIpa.endsWith(val)) {
+                        stemIpa = originalIpa.slice(0, -val.length);
+                        break;
+                    }
+                }
+            }
+
+            let result = stemIpa;
+
+            // Add intensity infix (ci) before suffix
+            if (intensive) {
+                // Insert 'ʃi' before the suffix in the IPA
+                // This is an approximation - you may need to adjust based on actual phonetics
+                result = result + 'ʃi';
+            }
+
+            // Add indirect prefix
+            if (indirect) {
+                result = 'ta' + result;
+            }
+
+            // Add the suffix back
+            const suffixMapReverse = {
+                'pe': 'pe',
+                'be': 'be',
+                'te': 'te',
+                'bupe': 'bupe',
+                'bube': 'bube',
+                'bute': 'bute',
+                'pu': 'pu',
+                'tu': 'tu'
+            };
+            
+            for (const [key, val] of Object.entries(suffixMapReverse)) {
+                if (suffix === key) {
+                    result = result + val;
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+        // ─── PHONEME SUBSTITUTIONS ──────────────────────────────────────
         const PHONEME_MAP = {
             'ɸ': 'F',
             'β': 'BH',
@@ -228,7 +502,6 @@
             'ɣ': 'VELR',
             'ŋ': 'NG',
             'ʂ': 'SS',
-            // Vowels (some are also handled for length, but we keep them for mapping)
             'æ': 'AE',
             'ɑ': 'ah',
             'ɛ': 'EH',
@@ -237,44 +510,34 @@
             'ɔ': 'OH',
             'ə': 'UH',
             'ɚ': 'ER',
-            // Rhotics
             'ɾ': 'r-50 D r',
             'ɹ': 'R',
             'ʁ': 'UVR',
-            // Laterals
             'ɫ': 'DL',
             'l': 'L',
-            // Stress marks (ignored)
             '.': '',
             '\'': ' ',
             'ˈ': '',
             'ˌ': '',
             'ˑ': '',
-            // ─── ADD THIS: keep the inserted "r" from length rule lowercase ──
             'r': '( DX DX DX DX )',
         };
 
-        // ─── TOKENISE & SUBSTITUTE ──────────────────────────────────────
         function substitutePhonemes(ipa) {
             if (!ipa) return '';
 
-            // 1) Tokenize: multi‑char symbols first, then single chars
             const tokens = [];
             let i = 0;
             const len = ipa.length;
 
-            // Multi‑character keys from PHONEME_MAP (longest first)
             const multiKeys = Object.keys(PHONEME_MAP)
                 .filter(k => k.length > 1)
                 .sort((a, b) => b.length - a.length);
 
-            // Also treat length markers as separate tokens (they are single char)
             const lengthMarkers = [':', 'ː'];
 
             while (i < len) {
                 let matched = false;
-
-                // Try multi‑char symbol
                 for (const key of multiKeys) {
                     if (ipa.startsWith(key, i)) {
                         tokens.push(key);
@@ -284,53 +547,38 @@
                     }
                 }
                 if (matched) continue;
-
-                // Single character (including length markers, stress marks, etc.)
                 tokens.push(ipa[i]);
                 i++;
             }
 
-            // 2) Process tokens: map each, and handle length markers
             const processed = [];
-
             for (let idx = 0; idx < tokens.length; idx++) {
                 const token = tokens[idx];
-
-                // If this token is a length marker, wrap the previous processed token
                 if (lengthMarkers.includes(token)) {
                     if (processed.length > 0) {
-                        // Get the last processed token (which is the mapped phoneme)
                         const last = processed.pop();
-                        // Wrap it with r+50 ... r
                         processed.push('r+50');
                         processed.push(last);
                         processed.push('r');
                     }
-                    // Else: ignore the marker (no preceding phoneme)
                     continue;
                 }
-
-                // Regular token: map it
                 let mapped = PHONEME_MAP[token];
                 if (mapped === undefined) {
-                    // If token is a single character, uppercase it
                     if (token.length === 1) {
                         mapped = token.toUpperCase();
                     } else {
-                        // Keep unknown multi-char as-is (unlikely)
                         mapped = token;
                     }
                 }
-                // Skip empty mappings (e.g., stress marks)
                 if (mapped !== '') {
                     processed.push(mapped);
                 }
             }
-
             return processed.join(' ');
         }
 
-        // ─── SPEAK FUNCTION LOADER ──────────────────────────────────────
+        // ─── SPEAK FUNCTION ──────────────────────────────────────────────
         let _speakFn = null;
         let _speakPromise = null;
 
@@ -355,8 +603,7 @@
                 } catch (err) {
                     console.warn('Could not load speak():', err);
                     _speakFn = (text) => {
-                        const msg = `[speak fallback] ${text}`;
-                        console.log(msg);
+                        console.log(`[speak fallback] ${text}`);
                         showToast(`🔊 ${text}`);
                     };
                     return _speakFn;
@@ -394,7 +641,8 @@
                 if (buttonEl) {
                     buttonEl.classList.add('playing');
                     buttonEl.disabled = true;
-                    buttonEl.querySelector('.label').textContent = '…';
+                    const label = buttonEl.querySelector('.label') || buttonEl;
+                    if (label) label.textContent = '…';
                 }
 
                 const speak = await getSpeak();
@@ -409,14 +657,15 @@
                 if (buttonEl) {
                     buttonEl.classList.remove('playing');
                     buttonEl.disabled = false;
-                    buttonEl.querySelector('.label').textContent = 'Play';
+                    const label = buttonEl.querySelector('.label') || buttonEl;
+                    if (label) label.textContent = '▶';
                 }
             }
         }
 
         window.playAudio = playAudio;
 
-        // ─── RENDER & FILTER ────────────────────────────────────────────
+        // ─── RENDER ──────────────────────────────────────────────────────
         let entries = [];
 
         function matchField(value, query) {
@@ -428,32 +677,119 @@
             grid.innerHTML = list.map((e) => {
                 const ipa = e.IPA || '';
                 const hasIpa = Boolean(ipa.trim());
-                return `
-              <div class="card">
-                <div class="Lemma">${e.Lemma || ''}</div>
-                ${ipa ? `<div class="ipa">/${ipa}/</div>` : ''}
-                <div>${e.Gloss || ''}</div>
-                <div class="pos">${e.pos || ''}</div>
-                ${e.Tags
-                    ? `<div class="tags">
-                        ${e.Tags.split(';')
-                          .filter(t => t.trim())
-                          .map(t => `<span class="tag">${t.trim()}</span>`)
-                          .join('')}
-                      </div>`
-                    : ''
+                const pos = e.pos || '';
+                
+                // Check if this is a verb: ends with -pe or is in exceptions
+                const isVerb = (e.Lemma || '').endsWith('pe') || 
+                               Object.keys(INFLECTION_EXCEPTIONS).includes(e.Lemma || '');
+                
+                const isNoun = pos === 'noun' || pos === 'N' || pos === 'n';
+                const isPronoun = pos === 'pronoun' || pos === 'Pron' || pos === 'PRO';
+
+                // Generate noun plural
+                let pluralForm = null;
+                let pluralIpa = null;
+                if (isNoun && e.Lemma && !INFLECTION_EXCEPTIONS[e.Lemma]?.noPlural) {
+                    pluralForm = e.Lemma + 'm';
+                    pluralIpa = ipa ? ipa + 'm' : '';
                 }
-                <button class="play-btn" 
-                        data-ipa="${ipa.replace(/"/g, '&quot;')}"
-                        ${!hasIpa ? 'disabled' : ''}
-                        onclick="window.playAudio(this.dataset.ipa, this)">
-                  <span class="icon">▶</span>
-                  <span class="label">${hasIpa ? 'Play' : 'No IPA'}</span>
-                </button>
-              </div>
-            `;
+
+                // Generate pronoun inflection (singular form)
+                let pronounSingular = null;
+                let pronounSingularIpa = null;
+                if (isPronoun && e.Lemma && e.Lemma.endsWith('m')) {
+                    pronounSingular = e.Lemma.slice(0, -1);
+                    pronounSingularIpa = ipa ? ipa.slice(0, -1) : '';
+                }
+
+                // Generate verb conjugations
+                let conjugations = [];
+                if (isVerb) {
+                    conjugations = generateConjugations(e.Lemma, ipa);
+                }
+
+                // Group conjugations by type
+                const grouped = {};
+                const groupLabels = {
+                    'direct': 'Direct',
+                    'indirect': 'Indirect (ta-)',
+                    'intensive': 'Intensive (-ci-)',
+                    'indirect_intensive': 'Indirect + Intensive'
+                };
+
+                conjugations.forEach(c => {
+                    if (!grouped[c.group]) grouped[c.group] = [];
+                    grouped[c.group].push(c);
+                });
+
+                // Get the stem for display
+                const stem = isVerb ? getStem(e.Lemma) : '';
+
+                return `
+                    <div class="card">
+                        <div class="Lemma">${e.Lemma || ''}</div>
+                        ${ipa ? `<div class="ipa">/${ipa}/</div>` : ''}
+                        ${stem ? `<div style="font-size:0.8rem;opacity:0.6;">Stem: ${stem}</div>` : ''}
+                        <div>${e.Gloss || ''}</div>
+                        <div class="pos">${e.pos || ''}</div>
+                        ${e.Tags ? `<div class="tags">${e.Tags.split(';').filter(t => t.trim()).map(t => `<span class="tag">${t.trim()}</span>`).join('')}</div>` : ''}
+                        
+                        ${pluralForm ? `
+                            <div style="margin-top:0.5rem;font-size:0.9rem;background:#f0f8f0;padding:0.3rem 0.6rem;border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+                                <span>Plural: <strong>${pluralForm}</strong> ${pluralIpa ? `/${pluralIpa}/` : ''}</span>
+                                <button class="play-btn-small" data-ipa="${pluralIpa || ''}" ${!pluralIpa ? 'disabled' : ''} onclick="window.playAudio(this.dataset.ipa, this)">▶</button>
+                            </div>
+                        ` : ''}
+                        
+                        ${pronounSingular ? `
+                            <div style="margin-top:0.5rem;font-size:0.9rem;background:#f0f8f0;padding:0.3rem 0.6rem;border-radius:6px;display:flex;justify-content:space-between;align-items:center;">
+                                <span>Singular: <strong>${pronounSingular}</strong> ${pronounSingularIpa ? `/${pronounSingularIpa}/` : ''}</span>
+                                <button class="play-btn-small" data-ipa="${pronounSingularIpa || ''}" ${!pronounSingularIpa ? 'disabled' : ''} onclick="window.playAudio(this.dataset.ipa, this)">▶</button>
+                            </div>
+                        ` : ''}
+
+                        ${conjugations.length > 0 ? `
+                            <div class="conjugation-section">
+                                <button class="conjugation-toggle" onclick="toggleConjugations(this)">
+                                    <span>Conjugations (${conjugations.length})</span>
+                                    <span class="arrow">▶</span>
+                                </button>
+                                <div class="conjugation-list">
+                                    ${Object.entries(grouped).map(([group, items]) => `
+                                        <div class="conjugation-group-label">${groupLabels[group] || group}</div>
+                                        ${items.map(c => `
+                                            <div class="conjugation-item">
+                                                <span>
+                                                    <span class="form">${c.form}</span>
+                                                    ${c.ipa ? `<span class="form-ipa">/${c.ipa}/</span>` : ''}
+                                                    <span style="font-size:0.7rem;opacity:0.6;margin-left:0.5rem;">${c.label}</span>
+                                                </span>
+                                                <button class="play-btn-small" data-ipa="${c.ipa || ''}" ${!c.ipa ? 'disabled' : ''} onclick="window.playAudio(this.dataset.ipa, this)">▶</button>
+                                            </div>
+                                        `).join('')}
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <button class="play-btn" data-ipa="${ipa.replace(/"/g, '&quot;')}" ${!hasIpa ? 'disabled' : ''} onclick="window.playAudio(this.dataset.ipa, this)">
+                            <span class="icon">▶</span>
+                            <span class="label">${hasIpa ? 'Play' : 'No IPA'}</span>
+                        </button>
+                    </div>
+                `;
             }).join('');
         }
+
+        function toggleConjugations(btn) {
+            const list = btn.parentElement.querySelector('.conjugation-list');
+            const arrow = btn.querySelector('.arrow');
+            if (list) {
+                list.classList.toggle('open');
+                if (arrow) arrow.classList.toggle('open');
+            }
+        }
+        window.toggleConjugations = toggleConjugations;
 
         function filter() {
             const q = document.getElementById('search').value.toLowerCase();
@@ -483,7 +819,7 @@
         document.getElementById('mode').addEventListener('change', filter);
         load();
 
-        // Pre‑load speak()
+        // Pre-load speak()
         getSpeak().catch(() => {});
     </script>
 
