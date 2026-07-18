@@ -531,7 +531,7 @@ export const bundled = {
         "A1": 1,
         "A2": 0.9,
         "A3": 0.7,
-        "example": "ʊ"
+        "example": "[ʊ]"
       },
       "ER": {
         "voicing": 1,

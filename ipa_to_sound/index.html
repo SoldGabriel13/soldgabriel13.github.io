@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+        name="IPA Reader"
+        content="It transforms the IPA text into a phoneme string computable by klattsch, then it uses the klattsch engine with expanded phoneme inventory"
+      />
+    <title>Lexicon</title>
+    <link rel="icon" type="image/png" href="/icons/favicon.png" />
+
+    <style>
+        :root {
+            --main-green: #2e7d32;
+            --light-green: #a5d6a7;
+            --bg: #f4fdf6;
+            --text: #1b1b1b;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        header {
+            background: var(--main-green);
+            color: white;
+            text-align: center;
+            padding: 2rem 1rem;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 2rem auto;
+            padding: 1rem;
+        }
+
+        #ipa {
+            width: 100%;
+            padding: 0.9rem;
+            border: 2px solid var(--light-green);
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+
+
+
+        /* ─── play button ────────────────────────────────────────────────── */
+        .play-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-top: 0.7rem;
+            padding: 0.35rem 0.85rem 0.35rem 0.6rem;
+            border: 2px solid var(--main-green);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--main-green);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s, transform 0.1s;
+        }
+
+        .play-btn:hover {
+            background: var(--main-green);
+            color: white;
+        }
+
+        .play-btn:active {
+            transform: scale(0.94);
+        }
+
+        .play-btn:disabled {
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        .play-btn.playing {
+            background: var(--main-green);
+            color: white;
+            animation: pulse 0.8s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4);
+            }
+            100% {
+                box-shadow: 0 0 0 6px rgba(46, 125, 50, 0);
+            }
+        }
+
+        .status {
+            margin-top: 0.6rem;
+            font-size: 0.85rem;
+            color: #4a4a4a;
+            min-height: 1.2em;
+        }
+
+        .status.error {
+            color: #c62828;
+        }
+
+    </style>
+</head>
+<body>
+    <header>
+        <h1>IPA player</h1>
+    </header>
+    <main>
+        <div class="controls">
+            <input id="ipa" value="he.'lo͡ʊ 'ðɛ.ɚ || ðɪs ɪs 'kʊɫ" placeholder="IPA text" />
+        </div>
+        <button id="playBtn" class="play-btn">Play</button>
+        <p id="status" class="status"></p>
+    </main>
+    <script type="module" src="src/main.js?v=0.5.0"></script>
+    <script type="module">
+        // NOTE: this assumes a global `speak(phonemeString)` function is already
+        // provided elsewhere in the app (e.g. loaded by src/main.js), which takes
+        // phoneme codes from bundled.js separated by spaces (e.g. "HH EH L O")
+        // and synthesizes/plays the audio. If that's not the case yet, replace
+        // the call inside playIpa() below with whatever your synth entry point is.
+        import { bundled } from './src/engine/banks/bundled.js';
+
+        const DATASET_NAME = 'ipa-soldgabriel-2026';
+        const phonemeDefs = bundled[DATASET_NAME].phonemes;
+
+        // Build a map of IPA symbol -> phoneme code (e.g. "ʂ" -> "SS").
+        // Most entries only carry the symbol inside "example": "[ʂ]"; a few
+        // also have an explicit "ipa" field, which takes precedence.
+        // Symbols are stored NFD-normalized so precomposed accented letters
+        // (e.g. "ă") and combining-mark sequences (e.g. "a" + breve) line up.
+        function buildIpaMap() {
+            const map = new Map();
+            for (const [code, def] of Object.entries(phonemeDefs)) {
+                let symbol = def.ipa;
+                if (!symbol && def.example) {
+                    const match = def.example.match(/\[(.+)\]/);
+                    if (match) symbol = match[1];
+                }
+                if (symbol) {
+                    map.set(symbol.normalize('NFD'), code);
+                }
+            }
+            return map;
+        }
+
+        const ipaMap = buildIpaMap();
+
+        // Explicit override: the plain letter "r" (IPA alveolar trill) is not
+        // looked up in bundled.js at all — it's always realized as a
+        // multi-tap flap sequence.
+        ipaMap.set('r', '( DX DX DX DX )');
+
+        // Longest symbols first, so multi-character symbols (affricates like
+        // "t͡ʃ", nasalized vowels like "ɑ̃") are matched before their parts.
+        const symbolsByLength = [...ipaMap.keys()].sort((a, b) => b.length - a.length);
+
+        // Diacritics that wrap the most recently emitted phoneme code as
+        // "{prefix} {code} {closer}".
+        const WRAP_DIACRITICS = {
+            '\u02D0': { prefix: 'r220', closer: 'r' }, // ː  long
+            ':': { prefix: 'r220', closer: 'r' },      // :  ASCII stand-in for ː
+            '\u02D1': { prefix: 'r165', closer: 'r' }, // ˑ  half-long
+            '\u0306': { prefix: 'r90', closer: 'r' },  // ̆  extra-short (combining breve)
+            '\u0324': { prefix: 'h0.9', closer: 'h' }, // ̤  breathy voice (combining diaeresis below)
+        };
+
+        // Boundary marks: emitted as standalone tokens, not tied to a phoneme.
+        const BOUNDARY_TOKENS = {
+            '|': ',', // minor (foot) boundary
+            '\u2016': '.', // ‖ major (intonation) boundary
+        };
+
+        // Stress marks: wrap an entire "." separated segment as
+        // "{prefix} b+1 {segment} r b".
+        const STRESS_WRAPS = {
+            '\u02C8': { prefix: 'r150' }, // ˈ primary stress
+            "'": { prefix: 'r150' },      // ' ASCII stand-in for ˈ
+            '\u02CC': { prefix: 'r125' }, // ˌ secondary stress
+        };
+
+        function wrapLastCode(codes, prefix, closer) {
+            if (codes.length === 0) return false;
+            codes[codes.length - 1] = `${prefix} ${codes[codes.length - 1]} ${closer}`;
+            return true;
+        }
+
+        // Tokenizes a single (already dot-split) chunk of IPA text into an
+        // array of phoneme-code tokens. Does not know about "." or stress
+        // marks — those are handled per-segment by ipaToPhonemeString.
+        function tokenizeSegment(text) {
+            const codes = [];
+            const unmatched = [];
+            let i = 0;
+
+            outer:
+            while (i < text.length) {
+                const ch = text[i];
+
+                if (/\s/.test(ch)) {
+                    i++;
+                    continue;
+                }
+
+                if (ch in WRAP_DIACRITICS) {
+                    const { prefix, closer } = WRAP_DIACRITICS[ch];
+                    if (!wrapLastCode(codes, prefix, closer)) unmatched.push(ch);
+                    i++;
+                    continue;
+                }
+
+                if (ch in BOUNDARY_TOKENS) {
+                    codes.push(BOUNDARY_TOKENS[ch]);
+                    i++;
+                    continue;
+                }
+
+                for (const symbol of symbolsByLength) {
+                    if (text.startsWith(symbol, i)) {
+                        codes.push(ipaMap.get(symbol));
+                        i += symbol.length;
+                        continue outer;
+                    }
+                }
+                unmatched.push(ch);
+                i++;
+            }
+
+            return { codes, unmatched };
+        }
+
+        function wrapSegment(joinedCodes, stress) {
+            if (stress) {
+                return `${stress.prefix} b+1 ${joinedCodes} r b`;
+            }
+            return `r100 ${joinedCodes} r`;
+        }
+
+        // Splits a word into stress-annotated chunks. Both "." and any
+        // stress mark (ˈ/'/ˌ) act as boundaries — a stress mark doesn't
+        // need to be preceded by "." to start a new chunk (so "meˈnĩ" splits
+        // into "me" and a ˈ-stressed "nĩ" even without a dot between them).
+        // "." carries no stress; a stress mark carries its own stress onto
+        // whatever text follows it, until the next boundary.
+        function splitWordIntoChunks(rawWord) {
+            const chunks = [];
+            let start = 0;
+            let stress = null;
+
+            const flush = (end) => {
+                const text = rawWord.slice(start, end).trim();
+                if (text) chunks.push({ text, stress });
+            };
+
+            for (let i = 0; i < rawWord.length; i++) {
+                const ch = rawWord[i];
+                if (ch === '.') {
+                    flush(i);
+                    start = i + 1;
+                    stress = null;
+                } else if (ch in STRESS_WRAPS) {
+                    flush(i);
+                    start = i + 1;
+                    stress = STRESS_WRAPS[ch];
+                }
+            }
+            flush(rawWord.length);
+
+            return chunks;
+        }
+
+        // Processes one whitespace-delimited word: splits it into
+        // stress-annotated chunks (see splitWordIntoChunks), tokenizes each,
+        // and wraps it — stressed chunks as "{prefix} b+1 {chunk} r b",
+        // every other chunk in the word as "r100 {chunk} r".
+        function processWord(rawWord) {
+            const chunks = splitWordIntoChunks(rawWord);
+            const outputs = [];
+            const unmatched = [];
+
+            for (const { text, stress } of chunks) {
+                const { codes, unmatched: chunkUnmatched } = tokenizeSegment(text);
+                unmatched.push(...chunkUnmatched);
+                if (codes.length === 0) continue;
+                outputs.push(wrapSegment(codes.join(' '), stress));
+            }
+
+            return { output: outputs.join(' '), unmatched };
+        }
+
+        // Turns raw IPA text into a bundled.js phoneme code string. Text is
+        // split into words (by whitespace), and each word into "." separated
+        // segments — the "." is only a splitting aid and never appears in
+        // the rendered output itself. Within each word, a stressed segment
+        // is wrapped as "{prefix} b+1 {segment} r b"; every other segment in
+        // that word is wrapped as "r100 {segment} r".
+        // e.g. "ˈka.mĩ.ɲu suave" ->
+        //   "r150 b+1 K AA r b r100 M IN r r100 U r r100 SS UW AA V EH r"
+        // Returns { phonemeString, unmatched }.
+        function ipaToPhonemeString(rawIpa) {
+            const text = rawIpa
+                .normalize('NFD')
+                .trim()
+                .replace(/^[\[\/]+|[\]\/]+$/g, ''); // drop surrounding [ ] or / /
+
+            const words = text.split(/\s+/).filter(Boolean);
+            const wordOutputs = [];
+            const unmatched = [];
+
+            for (const rawWord of words) {
+                const { output, unmatched: wordUnmatched } = processWord(rawWord);
+                unmatched.push(...wordUnmatched);
+                if (output) wordOutputs.push(output);
+            }
+
+            return { phonemeString: wordOutputs.join(' '), unmatched };
+        }
+
+        const input = document.getElementById('ipa');
+        const button = document.getElementById('playBtn');
+        const status = document.getElementById('status');
+
+        function setStatus(message, isError = false) {
+            status.textContent = message;
+            status.classList.toggle('error', isError);
+        }
+
+        async function playIpa() {
+            const raw = input.value;
+            if (!raw || !raw.trim()) {
+                setStatus('Type some IPA text first.', true);
+                return;
+            }
+
+            const { phonemeString, unmatched } = ipaToPhonemeString(raw);
+
+            if (!phonemeString) {
+                setStatus('No recognizable IPA symbols found.', true);
+                return;
+            }
+
+            if (unmatched.length) {
+                setStatus(`Playing "${phonemeString}" (skipped unknown: ${unmatched.join(' ')})`);
+            } else {
+                setStatus(`Playing "${phonemeString}"`);
+            }
+
+            button.disabled = true;
+            button.classList.add('playing');
+
+            try {
+                if (typeof speak !== 'function') {
+                    throw new Error('speak() is not defined yet — wire it up in src/main.js.');
+                }
+                await speak(phonemeString);
+            } catch (err) {
+                setStatus(err.message || 'Playback failed.', true);
+            } finally {
+                button.disabled = false;
+                button.classList.remove('playing');
+            }
+        }
+
+        button.addEventListener('click', playIpa);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') playIpa();
+        });
+    </script>
+</body>
+</html>
