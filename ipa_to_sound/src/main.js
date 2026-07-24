@@ -15,6 +15,12 @@ const DEFAULT_OPTS = {
   effort: 0.5,
   bank: banks.defaultName,
   volume: 1.0,
+  speed: 1,          // pacing multiplier (holds/gaps/pauses) -- see sequencer.js
+  glideSpeed: 1,      // independent multiplier for transition/glide duration
+  contour: 'flat',    // 'flat' | 'rise' | 'fall' | 'risefall' | 'fallrise' | 'alternate'
+  contourRange: 30,   // Hz swing for the contour
+  contourGroupWords: 2, // words per group, only used by 'alternate'
+  stressMode: 'classic', // 'classic' | 'pitch' | 'duration' | 'effort' | 'all' | 'none'
 };
 
 let ctx = null;
@@ -44,7 +50,11 @@ function mergeOpts(opts) {
 }
 
 function compile(text, opts) {
-  const { baseF0, rate, scale, vibratoDepth, vibratoRate, tremoloDepth, tremoloRate, aspiration, tilt, effort, bank } = opts;
+  const {
+    baseF0, rate, scale, vibratoDepth, vibratoRate, tremoloDepth, tremoloRate,
+    aspiration, tilt, effort, bank,
+    speed, glideSpeed, contour, contourRange, contourGroupWords, stressMode,
+  } = opts;
   return compileString(text, {
     baseF0,
     rate,
@@ -57,6 +67,12 @@ function compile(text, opts) {
     tilt,
     effort,
     bank,
+    speed,
+    glideSpeed,
+    contour,
+    contourRange,
+    contourGroupWords,
+    stressMode,
   });
 }
 
