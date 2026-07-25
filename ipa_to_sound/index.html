@@ -105,6 +105,27 @@
             color: #c62828;
         }
 
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-top: 0.9rem;
+            font-size: 0.85rem;
+            color: var(--text);
+        }
+
+        .speed-control input[type="range"] {
+            accent-color: var(--main-green);
+            width: 220px;
+        }
+
+        .speed-control output {
+            font-variant-numeric: tabular-nums;
+            min-width: 3.2em;
+            font-weight: 600;
+            color: var(--main-green);
+        }
+
     </style>
 </head>
 <body>
@@ -113,9 +134,19 @@
     </header>
     <main>
         <div class="controls">
-            <input id="ipa" value="he.'lo͡ʊ 'ðɛ.ɚ || ðɪs ɪs 'kʊɫ" placeholder="IPA text" />
+            <input id="ipa" value="'a͡ɪ 'me͡ɪd 'ðɪs ||↗ ɪs ↘ ðɪs  ↗ 'kʊɫ" placeholder="IPA text" />
         </div>
         <button id="playBtn" class="play-btn">Play</button>
+        <div class="speed-control">
+            <label for="speed">Pace</label>
+            <input id="speed" type="range" min="0.5" max="2.5" step="0.05" value="1" />
+            <output id="speedValue" for="speed">1.00×</output>
+        </div>
+        <div class="speed-control">
+            <label for="glideSpeed">Glide speed</label>
+            <input id="glideSpeed" type="range" min="0.5" max="2.5" step="0.05" value="1" />
+            <output id="glideSpeedValue" for="glideSpeed">1.00×</output>
+        </div>
         <p id="status" class="status"></p>
     </main>
     <script type="module" src="src/main.js?v=0.5.0"></script>
@@ -144,7 +175,19 @@
                     if (match) symbol = match[1];
                 }
                 if (symbol) {
-                    map.set(symbol.normalize('NFD'), code);
+                    const key = symbol.normalize('NFD');
+                    if (map.has(key)) {
+                        // Data bug in bundled.js: two phonemes share the same
+                        // example symbol, so the second one silently makes the
+                        // first unreachable from typed IPA. Surface it loudly
+                        // instead of swallowing it -- e.g. LFN and LNFN both
+                        // currently claim "[ã]".
+                        console.warn(
+                            `IPA symbol "${symbol}" is claimed by both ${map.get(key)} and ${code} in bundled.js; ` +
+                            `${code} wins and ${map.get(key)} is now unreachable from typed IPA.`
+                        );
+                    }
+                    map.set(key, code);
                 }
             }
             return map;
@@ -156,6 +199,10 @@
         // looked up in bundled.js at all — it's always realized as a
         // multi-tap flap sequence.
         ipaMap.set('r', '( DX DX DX DX )');
+        ipaMap.set('ʰ', 'r-60 ( H ) r+60');
+        ipaMap.set('ʲ', 'r-60 ( J ) r+60');
+        ipaMap.set('ʷ', 'r-60 ( W ) r+60');
+        ipaMap.set('ˠ', 'r-60 ( VELR ) r+60');
 
         // Longest symbols first, so multi-character symbols (affricates like
         // "t͡ʃ", nasalized vowels like "ɑ̃") are matched before their parts.
@@ -167,14 +214,55 @@
             '\u02D0': { prefix: 'r220', closer: 'r' }, // ː  long
             ':': { prefix: 'r220', closer: 'r' },      // :  ASCII stand-in for ː
             '\u02D1': { prefix: 'r165', closer: 'r' }, // ˑ  half-long
-            '\u0306': { prefix: 'r90', closer: 'r' },  // ̆  extra-short (combining breve)
+            '\u0306': { prefix: 'r70', closer: 'r' },  // ̆  extra-short (combining breve)
             '\u0324': { prefix: 'h0.9', closer: 'h' }, // ̤  breathy voice (combining diaeresis below)
         };
 
         // Boundary marks: emitted as standalone tokens, not tied to a phoneme.
+        // '\u2197' (rising arrow) and '\u2193' (downstep arrow) piggyback on
+        // this same mechanism: they don't wrap a phoneme, they just drop a
+        // prosody directive into the stream at that point, which OVERRIDES
+        // whatever contour/register was already in effect from there on.
         const BOUNDARY_TOKENS = {
             '|': ',', // minor (foot) boundary
             '\u2016': '.', // ‖ major (intonation) boundary
+            '\u2197': '[contour=rise]', // ↗ forces a rising contour for the rest of the clause
+            '\u2198': '[contour=fall]',
+            '\u2192': '[contour=flat]',
+            '\u2193': 'b-20',
+            '\u2191': 'b+20'
+        };
+
+        // Combining tone diacritics that wrap the LAST emitted code, same
+        // mechanism as WRAP_DIACRITICS above (length marks etc.) — level
+        // tones use a symmetric pitch bump that's undone right after, so
+        // they never leave a lasting shift on what follows; á/à/ā are
+        // level tones (high/low/mid), â/ǎ are contour tones (a real glide
+        // within that one syllable, not just a level shift).
+        const TONE_STEP = 12; // Hz per Chao tone-level step, used everywhere below
+        const TONE_WRAP_DIACRITICS = {
+            '\u0301': { prefix: `b+${TONE_STEP * 2}`, closer: `b-${TONE_STEP * 2}` }, // á high tone
+            '\u0300': { prefix: `b-${TONE_STEP * 2}`, closer: `b+${TONE_STEP * 2}` }, // à low tone
+            '\u0304': null, // ā mid/level tone -- reference level, no shift needed
+        };
+        // Contour (glide) tone diacritics: only cleanly representable as a
+        // real within-syllable pitch glide when the code they're attached
+        // to hasn't already been wrapped by something else (see comment at
+        // its use below); falls back to a level-shift approximation
+        // otherwise, which still sounds directionally right even if it's
+        // not a true glide.
+        const CONTOUR_TONE_DIACRITICS = {
+            '\u0302': -TONE_STEP * 3, // â circumflex: falling contour (high -> low)
+            '\u030C': TONE_STEP * 3,  // ǎ caron: rising contour (low -> high)
+        };
+
+        // Chao tone-letter levels (˥˦˧˨˩ = 5..1, high to low). These are
+        // PREFIX marks in this app's convention (e.g. "˦a"), unlike the
+        // combining marks above which are suffixes (e.g. "á"). A run of
+        // several in a row (e.g. "˧˦˧a") describes a multi-point contour
+        // across the syllable, not just its start and end.
+        const TONE_LEVELS = {
+            '\u02E5': 5, '\u02E6': 4, '\u02E7': 3, '\u02E8': 2, '\u02E9': 1,
         };
 
         // Stress marks: wrap an entire "." separated segment as
@@ -189,6 +277,27 @@
             if (codes.length === 0) return false;
             codes[codes.length - 1] = `${prefix} ${codes[codes.length - 1]} ${closer}`;
             return true;
+        }
+
+        // Builds one combined token for a run of Chao tone levels (e.g.
+        // [3,4,3] for "˧˦˧") applied to a base phoneme code. Each level
+        // becomes one repetition of the base code, grouped into a syllable
+        // "( ... )" so they share a single syllable's time slot instead of
+        // sounding like separate extra sounds; a sticky delta between
+        // consecutive repetitions carries the pitch from one level to the
+        // next. A trailing directive (outside the group, so it's silent)
+        // undoes the total drift so the contour never leaks into whatever
+        // comes after it.
+        function buildToneContour(levels, baseCode) {
+            const offsets = levels.map(L => (L - 3) * TONE_STEP);
+            const parts = offsets.map((off, i) => {
+                const step = i === 0 ? off : off - offsets[i - 1];
+                if (step === 0) return baseCode;
+                return `${baseCode}${step > 0 ? '+' : ''}${step}`;
+            });
+            const net = offsets[offsets.length - 1];
+            const correction = net === 0 ? '' : ` b${net > 0 ? '-' : '+'}${Math.abs(net)}`;
+            return `( ${parts.join(' ')} )${correction}`;
         }
 
         // Tokenizes a single (already dot-split) chunk of IPA text into an
@@ -215,9 +324,77 @@
                     continue;
                 }
 
+                // Suffix level tones: á/à/ā. Symmetric bump-and-undo, so a
+                // level tone shifts just that one syllable's register and
+                // never leaks into what follows.
+                if (ch in TONE_WRAP_DIACRITICS) {
+                    const wrap = TONE_WRAP_DIACRITICS[ch];
+                    if (wrap) {
+                        if (!wrapLastCode(codes, wrap.prefix, wrap.closer)) unmatched.push(ch);
+                    } else if (codes.length === 0) {
+                        unmatched.push(ch); // ā (mid) with nothing to attach to
+                    }
+                    i++;
+                    continue;
+                }
+
+                // Suffix contour tones: â (falling) / ǎ (rising). When the
+                // last code is still bare (no earlier diacritic has wrapped
+                // it) this rewrites it as a real transient pitch glide
+                // within that one phoneme, e.g. "AA" -> "AA(-36)" — the
+                // most accurate representation. If something already
+                // wrapped it (e.g. a preceding length mark), a true glide
+                // can no longer be spliced into the middle of that string
+                // safely, so this falls back to a symmetric register-shift
+                // wrap instead — directionally right, just not a true glide.
+                if (ch in CONTOUR_TONE_DIACRITICS) {
+                    const delta = CONTOUR_TONE_DIACRITICS[ch];
+                    if (codes.length === 0) {
+                        unmatched.push(ch);
+                    } else if (/^[A-Z]+$/.test(codes[codes.length - 1])) {
+                        codes[codes.length - 1] += `(${delta > 0 ? '+' : ''}${delta})`;
+                    } else {
+                        wrapLastCode(codes, `b${delta > 0 ? '+' : ''}${delta}`, `b${delta > 0 ? '-' : '+'}${Math.abs(delta)}`);
+                    }
+                    i++;
+                    continue;
+                }
+
                 if (ch in BOUNDARY_TOKENS) {
                     codes.push(BOUNDARY_TOKENS[ch]);
                     i++;
+                    continue;
+                }
+
+                // Prefix Chao tone letters: ˦a (one level) or ˧˦˧a (a
+                // multi-point contour) — consume the whole run of tone-level
+                // characters, then require a base symbol immediately after
+                // it. With no base symbol to attach to, the run is invalid
+                // and reported as unmatched rather than silently dropped.
+                if (ch in TONE_LEVELS) {
+                    let j = i;
+                    const levels = [];
+                    while (j < text.length && text[j] in TONE_LEVELS) {
+                        levels.push(TONE_LEVELS[text[j]]);
+                        j++;
+                    }
+                    let matchedSymbol = null;
+                    for (const symbol of symbolsByLength) {
+                        if (text.startsWith(symbol, j)) { matchedSymbol = symbol; break; }
+                    }
+                    if (matchedSymbol) {
+                        const baseCode = ipaMap.get(matchedSymbol);
+                        if (levels.length === 1) {
+                            const off = (levels[0] - 3) * TONE_STEP;
+                            codes.push(off === 0 ? baseCode : `b${off > 0 ? '+' : ''}${off} ${baseCode} b${off > 0 ? '-' : '+'}${Math.abs(off)}`);
+                        } else {
+                            codes.push(buildToneContour(levels, baseCode));
+                        }
+                        i = j + matchedSymbol.length;
+                    } else {
+                        for (const c of text.slice(i, j)) unmatched.push(c);
+                        i = j;
+                    }
                     continue;
                 }
 
@@ -325,6 +502,17 @@
         const input = document.getElementById('ipa');
         const button = document.getElementById('playBtn');
         const status = document.getElementById('status');
+        const speedSlider = document.getElementById('speed');
+        const speedValue = document.getElementById('speedValue');
+        const glideSpeedSlider = document.getElementById('glideSpeed');
+        const glideSpeedValue = document.getElementById('glideSpeedValue');
+
+        speedSlider.addEventListener('input', () => {
+            speedValue.textContent = `${Number(speedSlider.value).toFixed(2)}×`;
+        });
+        glideSpeedSlider.addEventListener('input', () => {
+            glideSpeedValue.textContent = `${Number(glideSpeedSlider.value).toFixed(2)}×`;
+        });
 
         function setStatus(message, isError = false) {
             status.textContent = message;
@@ -358,7 +546,17 @@
                 if (typeof speak !== 'function') {
                     throw new Error('speak() is not defined yet — wire it up in src/main.js.');
                 }
-                await speak(phonemeString);
+                // NOTE: main.js's speak() needs to forward these options into
+                // compileString(phonemeString, opts) (sequencer.js) -- that's
+                // where they actually scale the schedule. `speed` only moves
+                // WHEN phonemes happen (pacing/holds/pauses); `glideSpeed` only
+                // affects how fast transitions/diphthong glides move, kept
+                // independent so speeding up talking pace doesn't also speed
+                // up how fast the mouth physically glides between sounds.
+                await speak(phonemeString, {
+                    speed: Number(speedSlider.value),
+                    glideSpeed: Number(glideSpeedSlider.value),
+                });
             } catch (err) {
                 setStatus(err.message || 'Playback failed.', true);
             } finally {

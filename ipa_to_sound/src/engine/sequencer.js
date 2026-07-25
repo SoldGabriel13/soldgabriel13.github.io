@@ -57,7 +57,7 @@ function normalize(input) {
 function classifyPart(part) {
   if (part === '(') return { type: 'syllable_open' };
   if (part === ')') return { type: 'syllable_close' };
-  if (part in PAUSE_MS) return { type: 'pause', ms: PAUSE_MS[part] };
+  if (part in PAUSE_MS) return { type: 'pause', ms: PAUSE_MS[part], char: part };
   if (part === '!' || part === "'") return { type: 'stress_mark' };
 
   const bankSwitch = part.match(/^\[bank=([A-Za-z0-9_.\-]+)\]$/);
@@ -67,6 +67,14 @@ function classifyPart(part) {
   const bracket = part.match(/^\[(\w+)=(-?\d+(?:\.\d+)?)\]$/);
   if (bracket) {
     return { type: 'directive', key: bracket[1], value: Number(bracket[2]), relative: false };
+  }
+
+  // String-valued directives, e.g. [contour=rise] or [stressMode=classic].
+  // Kept separate from the numeric form above (which is tried first, so a
+  // numeric-looking value like "[rate=110]" is never misread as a string).
+  const bracketStr = part.match(/^\[(\w+)=([A-Za-z][A-Za-z0-9_-]*)\]$/);
+  if (bracketStr) {
+    return { type: 'directive', key: bracketStr[1], valueStr: bracketStr[2], relative: false };
   }
 
   const noteForm = part.match(/^(b)(=)?([A-G][b#]?-?\d+)$/);
@@ -168,6 +176,96 @@ export function tokenize(rawInput) {
   return { tokens, source };
 }
 
+// Shapes a contour across one span of phoneme tokens (a sentence, or -- for
+// 'alternate' mode -- smaller word-groups within it) and writes each
+// phoneme's offset into `deltas`. Offsets are pure ADDITIVE shaping applied
+// on top of whatever f0 the phoneme would already have (stress lift, manual
+// pitch directives, tone diacritics, ...) -- they never touch the running
+// `f0` itself, so contour and manual pitch control never fight each other.
+function shapeSpan(phonemeTokens, direction, range, deltas) {
+  const n = phonemeTokens.length;
+  if (!n) return;
+  for (let i = 0; i < n; i++) {
+    const frac = n === 1 ? 0.5 : i / (n - 1);
+    let v;
+    switch (direction) {
+      case 'rise':     v = range * (frac - 0.5); break;
+      case 'fall':     v = range * (0.5 - frac); break;
+      case 'risefall': v = (range / 2) * (1 - Math.abs(frac * 2 - 1)); break;
+      case 'fallrise': v = -(range / 2) * (1 - Math.abs(frac * 2 - 1)); break;
+      default:          v = 0;
+    }
+    deltas.set(phonemeTokens[i], v);
+  }
+}
+
+// Pre-pass over the full token stream (run BEFORE the main render loop)
+// that figures out, for every phoneme token, how much a sentence-level
+// intonation contour should shift its pitch. Needs a lookahead because
+// "rise toward the end of the sentence" requires knowing where the
+// sentence ends -- something the single-pass render loop below doesn't
+// know ahead of time.
+//
+// Sentence boundaries are '.' pauses (or end of input); ',' and ';' are
+// treated as word-group boundaries, used only by 'alternate' mode to
+// decide where one group's tone direction hands off to the next.
+function computeContourDeltas(tokens, { mode: initialMode, range: initialRange, groupWords: initialGroupWords }) {
+  const deltas = new Map();
+  let mode = initialMode;
+  let range = initialRange;
+  let groupWords = initialGroupWords;
+  let sentence = []; // mix of phoneme tokens and pause tokens, in order
+
+  const flushSentence = () => {
+    if (!sentence.length) return;
+    const phonemeTokens = sentence.filter(t => t.type === 'phoneme');
+    if (mode === 'alternate') {
+      // Split into word-runs (phonemes between any pause), then group
+      // every `groupWords` runs together and alternate direction per group.
+      const wordRuns = [];
+      let run = [];
+      for (const t of sentence) {
+        if (t.type === 'phoneme') run.push(t);
+        else if (run.length) { wordRuns.push(run); run = []; }
+      }
+      if (run.length) wordRuns.push(run);
+      for (let g = 0; g * groupWords < wordRuns.length; g++) {
+        const group = wordRuns.slice(g * groupWords, (g + 1) * groupWords).flat();
+        shapeSpan(group, g % 2 === 0 ? 'rise' : 'fall', range, deltas);
+      }
+    } else if (mode !== 'flat' && mode !== 'none') {
+      shapeSpan(phonemeTokens, mode, range, deltas);
+    }
+    sentence = [];
+  };
+
+  for (const t of tokens) {
+    if (t.type === 'directive') {
+      if (t.key === 'contour' && t.valueStr && t.valueStr !== mode) {
+        // Mode changed mid-sentence: shape what's accumulated so far under
+        // the OLD mode as its own local span, then start fresh so the new
+        // mode only shapes what comes after it.
+        flushSentence();
+        mode = t.valueStr;
+      } else if (t.key === 'contourRange' && typeof t.value === 'number') {
+        range = t.value;
+      } else if (t.key === 'contourGroupWords' && typeof t.value === 'number') {
+        groupWords = Math.max(1, Math.round(t.value));
+      }
+      continue;
+    }
+    if (t.type === 'phoneme') { sentence.push(t); continue; }
+    if (t.type === 'pause') {
+      sentence.push(t);
+      if (t.char === '.') flushSentence();
+      continue;
+    }
+  }
+  flushSentence(); // trailing sentence with no closing "."
+
+  return deltas;
+}
+
 export function compile(parsed, opts = {}) {
   // accept { tokens, source } shape from tokenize()
   // fallback to legacy otherwise
@@ -184,6 +282,32 @@ export function compile(parsed, opts = {}) {
   const initialTilt        = opts.tilt ?? 0;
   const initialEffort      = opts.effort ?? 0.5;
   const registry           = opts.registry ?? banks;
+  // Overall pacing multiplier: 2 = twice as fast, 0.5 = half speed.
+  // Applied as a final pass over the computed schedule (below) rather than
+  // threaded through `rate`, because individual tokens/segments can set
+  // their own absolute rate (e.g. "r100", "r150") that would otherwise
+  // ignore a base-rate change. This only rescales WHEN events happen
+  // (atMs) -- how long phonemes are held, how much gap sits between them.
+  // It deliberately does NOT touch transitionMs (see `glideSpeed` below):
+  // a person talking faster holds vowels for less time and leaves shorter
+  // pauses, but their articulators don't physically move through a glide
+  // any quicker, so formant transitions/diphthong glides keep their
+  // natural duration regardless of overall pace.
+  const speed = opts.speed > 0 ? opts.speed : 1;
+  // Separate, independent control over how fast the articulators move
+  // through transitions/glides themselves (formant ramps, diphthong
+  // glides, stop bursts). Kept apart from `speed` on purpose -- see above.
+  const glideSpeed = opts.glideSpeed > 0 ? opts.glideSpeed : 1;
+  // Sentence-level intonation shaping: 'flat' (default, no change), 'rise',
+  // 'fall', 'risefall', 'fallrise', or 'alternate' (every `contourGroupWords`
+  // words swaps direction). Can also be switched mid-string with
+  // [contour=NAME] / [contourRange=N] / [contourGroupWords=N].
+  let stressMode = opts.stressMode ?? 'classic';
+  const contourDeltas = computeContourDeltas(tokens, {
+    mode: opts.contour ?? 'flat',
+    range: opts.contourRange ?? 30,
+    groupWords: opts.contourGroupWords ?? 2,
+  });
   const initialPhonemes    = resolveBank(opts.bank, registry).phonemes;
   let phonemes             = initialPhonemes;
   let f0           = initialBaseF0;
@@ -238,8 +362,14 @@ export function compile(parsed, opts = {}) {
       warnings.push(`unknown phoneme: ${t.code}`);
       return 0;
     }
-    const startF0 = t.stressed ? f0 + DEFAULTS.stressF0Lift : f0;
+    const usePitchStress = t.stressed && (stressMode === 'classic' || stressMode === 'pitch' || stressMode === 'all');
+    const useEffortStress = t.stressed && (stressMode === 'effort' || stressMode === 'all');
+    const contourOffset = contourDeltas.get(t) ?? 0;
+    const startF0 = (usePitchStress ? f0 + DEFAULTS.stressF0Lift : f0) + contourOffset;
     const endF0 = startF0 + t.pitchDelta;
+    const prevEffort = effort;
+    if (useEffortStress) effort = Math.min(1, effort + 0.25);
+    let result;
     if (p.isStop) {
       const burstMs = Math.min(DEFAULTS.stopBurstMs, slotMs * 0.3);
       const silenceMs = slotMs - burstMs;
@@ -247,26 +377,28 @@ export function compile(parsed, opts = {}) {
       timeMs += silenceMs;
       emit(scaled(p, startF0), Math.min(5, burstMs * 0.2));
       timeMs += burstMs;
-      return slotMs;
+      result = slotMs;
     } else if (p.glideTo) {
       const onset = slotMs * 0.25, glide = slotMs * 0.50, offset = slotMs * 0.25;
       emit(scaled(p, startF0), Math.min(20, onset));
       timeMs += onset;
       emit(scaled(p, endF0, p.glideTo), glide);
       timeMs += glide + offset;
-      return slotMs;
+      result = slotMs;
     } else if (t.pitchDelta !== 0) {
       emit(scaled(p, startF0), Math.min(25, slotMs * 0.25));
       timeMs += slotMs * 0.25;
       emit(scaled(p, endF0), slotMs * 0.6);
       timeMs += slotMs * 0.75;
-      return slotMs;
+      result = slotMs;
     } else {
       const trans = Math.min(DEFAULTS.defaultTransitionMs, slotMs * 0.4);
       emit(scaled(p, startF0), trans);
       timeMs += slotMs;
-      return slotMs;
+      result = slotMs;
     }
+    effort = prevEffort;
+    return result;
   };
 
   let inSyllable = false;
@@ -405,6 +537,15 @@ export function compile(parsed, opts = {}) {
           timeMs += Math.abs(t.value);
           emitPhrase(t);
           break;
+        case 'stressMode':
+          if (t.valueStr) stressMode = t.valueStr;
+          break;
+        case 'contour':
+        case 'contourRange':
+        case 'contourGroupWords':
+          // Already consumed by the computeContourDeltas() pre-pass above;
+          // nothing to do at render time.
+          break;
         default:
           warnings.push(`unknown directive: ${t.key}`);
       }
@@ -425,7 +566,8 @@ export function compile(parsed, opts = {}) {
       continue;
     }
 
-    const phoneRate = t.stressed ? rate * DEFAULTS.stressDurationFactor : rate;
+    const useDurationStress = t.stressed && (stressMode === 'classic' || stressMode === 'duration' || stressMode === 'all');
+    const phoneRate = useDurationStress ? rate * DEFAULTS.stressDurationFactor : rate;
     renderPhoneme(t, phoneRate);
     emitPhrase(t);
 
@@ -443,6 +585,22 @@ export function compile(parsed, opts = {}) {
 
   // Hold the final phrase highlighted
   if (phrases.length) phrases[phrases.length - 1].tEndMs = timeMs;
+
+  if (speed !== 1) {
+    for (const e of schedule) {
+      e.atMs /= speed;
+    }
+    for (const p of phrases) {
+      p.tStartMs /= speed;
+      p.tEndMs /= speed;
+    }
+    timeMs /= speed;
+  }
+  if (glideSpeed !== 1) {
+    for (const e of schedule) {
+      e.transitionMs /= glideSpeed;
+    }
+  }
 
   return { schedule, totalMs: timeMs, warnings, phrases, source };
 }
