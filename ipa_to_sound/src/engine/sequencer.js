@@ -63,6 +63,7 @@ function classifyPart(part) {
   const bankSwitch = part.match(/^\[bank=([A-Za-z0-9_.\-]+)\]$/);
   if (bankSwitch) return { type: 'bank_switch', name: bankSwitch[1] };
   if (part === '[bank]') return { type: 'bank_reset' };
+  if (part === '[glideTo]') return { type: 'directive', key: 'glideTo', valueStr: 'full' };
 
   const bracket = part.match(/^\[(\w+)=(-?\d+(?:\.\d+)?)\]$/);
   if (bracket) {
@@ -266,10 +267,56 @@ function computeContourDeltas(tokens, { mode: initialMode, range: initialRange, 
   return deltas;
 }
 
+// Extracts the subset of a target phoneme's fields that an inline
+// "AA [glideTo=TYPE] OO" directive should glide toward:
+//  - 'frequencies': just F1/F2/F3 -- glide the formant frequencies only,
+//    leaving bandwidths/amplitudes/everything else as the source phoneme's.
+//  - 'formants': F1-3 + BW1-3 -- frequencies and bandwidths.
+//  - 'full' (default): every field the target phoneme defines, same as a
+//    bank-authored static glideTo would.
+function extractGlideFields(targetP, type) {
+  if (type === 'frequencies') {
+    const { F1, F2, F3 } = targetP;
+    return { F1, F2, F3 };
+  }
+  if (type === 'formants') {
+    const { F1, F2, F3, BW1, BW2, BW3 } = targetP;
+    return { F1, F2, F3, BW1, BW2, BW3 };
+  }
+  return { ...targetP };
+}
+
+// Collapses an inline "PHONEME [glideTo] PHONEME" sequence into a single
+// phoneme token that glides toward the second phoneme's parameters, instead
+// of requiring a bank author to predefine a diphthong-like phoneme with its
+// own static `glideTo`. The second phoneme is consumed as the glide TARGET
+// only -- it's never separately rendered/heard, exactly like a bank-defined
+// diphthong's endpoint isn't its own audible segment.
+function applyGlideDirectives(tokens) {
+  const out = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    const next = tokens[i + 1];
+    const after = tokens[i + 2];
+    if (
+      t.type === 'phoneme' &&
+      next && next.type === 'directive' && next.key === 'glideTo' &&
+      after && after.type === 'phoneme'
+    ) {
+      out.push({ ...t, glideToCode: after.code, glideToType: next.valueStr || 'full' });
+      i += 2; // consume the directive and the target phoneme too
+      continue;
+    }
+    out.push(t);
+  }
+  return out;
+}
+
 export function compile(parsed, opts = {}) {
   // accept { tokens, source } shape from tokenize()
   // fallback to legacy otherwise
-  const tokens = Array.isArray(parsed) ? parsed : parsed.tokens;
+  let tokens = Array.isArray(parsed) ? parsed : parsed.tokens;
+  tokens = applyGlideDirectives(tokens);
   const source = Array.isArray(parsed) ? '' : (parsed.source ?? '');
   const initialBaseF0      = opts.baseF0 ?? DEFAULTS.baseF0;
   const initialRate        = opts.rate ?? DEFAULTS.rate;
@@ -369,6 +416,18 @@ export function compile(parsed, opts = {}) {
     const endF0 = startF0 + t.pitchDelta;
     const prevEffort = effort;
     if (useEffortStress) effort = Math.min(1, effort + 0.25);
+    // An inline "AA [glideTo] OO" directive (see applyGlideDirectives above)
+    // takes precedence over a bank-authored static p.glideTo, the same way
+    // hand-specifying it would.
+    let glideTo = p.glideTo || null;
+    if (t.glideToCode) {
+      const targetP = phonemes[t.glideToCode];
+      if (!targetP) {
+        warnings.push(`unknown glideTo phoneme: ${t.glideToCode}`);
+      } else {
+        glideTo = extractGlideFields(targetP, t.glideToType);
+      }
+    }
     let result;
     if (p.isStop) {
       const burstMs = Math.min(DEFAULTS.stopBurstMs, slotMs * 0.3);
@@ -378,11 +437,11 @@ export function compile(parsed, opts = {}) {
       emit(scaled(p, startF0), Math.min(5, burstMs * 0.2));
       timeMs += burstMs;
       result = slotMs;
-    } else if (p.glideTo) {
+    } else if (glideTo) {
       const onset = slotMs * 0.25, glide = slotMs * 0.50, offset = slotMs * 0.25;
       emit(scaled(p, startF0), Math.min(20, onset));
       timeMs += onset;
-      emit(scaled(p, endF0, p.glideTo), glide);
+      emit(scaled(p, endF0, glideTo), glide);
       timeMs += glide + offset;
       result = slotMs;
     } else if (t.pitchDelta !== 0) {
@@ -545,6 +604,12 @@ export function compile(parsed, opts = {}) {
         case 'contourGroupWords':
           // Already consumed by the computeContourDeltas() pre-pass above;
           // nothing to do at render time.
+          break;
+        case 'glideTo':
+          // A well-formed "PHONEME [glideTo] PHONEME" never reaches here --
+          // applyGlideDirectives() consumes it before the main loop runs.
+          // Reaching this means it wasn't sandwiched between two phonemes.
+          warnings.push('[glideTo] must directly follow a phoneme and be directly followed by another phoneme');
           break;
         default:
           warnings.push(`unknown directive: ${t.key}`);

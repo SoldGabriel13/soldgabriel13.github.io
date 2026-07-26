@@ -134,7 +134,7 @@
     </header>
     <main>
         <div class="controls">
-            <input id="ipa" value="'a͡ɪ 'me͡ɪd 'ðɪs ||↗ ɪs ↘ ðɪs  ↗ 'kʊɫ" placeholder="IPA text" />
+            <input id="ipa" value="he.'lo͡ʊ 'ðɛ.ɚ || ðɪs ɪs 'kʊɫ" placeholder="IPA text" />
         </div>
         <button id="playBtn" class="play-btn">Play</button>
         <div class="speed-control">
@@ -227,10 +227,7 @@
             '|': ',', // minor (foot) boundary
             '\u2016': '.', // ‖ major (intonation) boundary
             '\u2197': '[contour=rise]', // ↗ forces a rising contour for the rest of the clause
-            '\u2198': '[contour=fall]',
-            '\u2192': '[contour=flat]',
-            '\u2193': 'b-20',
-            '\u2191': 'b+20'
+            '\u2193': 'b-20', // ↓ downstep: permanent register step-down from here on
         };
 
         // Combining tone diacritics that wrap the LAST emitted code, same
@@ -272,6 +269,20 @@
             "'": { prefix: 'r150' },      // ' ASCII stand-in for ˈ
             '\u02CC': { prefix: 'r125' }, // ˌ secondary stress
         };
+
+        // Tie bar: links two adjacent symbols into one glide, e.g. affricate
+        // "t͡ʃ" or diphthong "a͡ʊ" (symbol + U+0361 + symbol). U+035C (tie
+        // bar placed below instead of above) is the same thing typographically
+        // and is treated identically. Maps straight onto the sequencer's
+        // "[glideTo]" directive: the first symbol glides toward the second.
+        const TIE_BAR_CHARS = new Set(['\u0361', '\u035C']);
+
+        function matchSymbolAt(text, pos) {
+            for (const symbol of symbolsByLength) {
+                if (text.startsWith(symbol, pos)) return symbol;
+            }
+            return null;
+        }
 
         function wrapLastCode(codes, prefix, closer) {
             if (codes.length === 0) return false;
@@ -363,6 +374,36 @@
                 if (ch in BOUNDARY_TOKENS) {
                     codes.push(BOUNDARY_TOKENS[ch]);
                     i++;
+                    continue;
+                }
+
+                // Tie bar: "t͡ʃ" / "a͡ʊ" etc. -- glide the preceding symbol
+                // toward whatever symbol follows the tie mark.
+                if (TIE_BAR_CHARS.has(ch)) {
+                    const nextSymbol = matchSymbolAt(text, i + 1);
+                    if (codes.length === 0 || !nextSymbol) {
+                        unmatched.push(ch);
+                        i++;
+                        continue;
+                    }
+                    const nextCode = ipaMap.get(nextSymbol);
+                    const lastCode = codes[codes.length - 1];
+                    // Only safe to tie when the preceding code is still a
+                    // single bare phoneme token (possibly with its own
+                    // inline pitch suffix from a tone mark, e.g. "AA(-36)")
+                    // -- [glideTo] must directly follow one phoneme and be
+                    // directly followed by one phoneme (see sequencer.js).
+                    // If something earlier (a length mark, etc.) already
+                    // wrapped it into a multi-token string, tying it here
+                    // would break that adjacency, so both symbols are kept
+                    // as separate, non-glide-linked sounds instead --
+                    // audible either way, just not glide-joined.
+                    if (/^[A-Z]+(\([+-]?\d+(?:\.\d+)?\)|[+-]?\d+(?:\.\d+)?)?$/.test(lastCode)) {
+                        codes[codes.length - 1] = `${lastCode} [glideTo] ${nextCode}`;
+                    } else {
+                        codes.push(nextCode);
+                    }
+                    i += 1 + nextSymbol.length;
                     continue;
                 }
 
