@@ -438,7 +438,11 @@ export function compile(parsed, opts = {}) {
       timeMs += burstMs;
       result = slotMs;
     } else if (glideTo) {
-      const onset = slotMs * 0.25, glide = slotMs * 0.50, offset = slotMs * 0.25;
+      // Emphasis stays on the FIRST sound (nucleus): hold it for most of
+      // the slot, then glide toward the second sound only near the very
+      // end, with just a brief moment actually at the target -- like a
+      // real diphthong, not a 50/50 cross-fade.
+      const onset = slotMs * 0.45, glide = slotMs * 0.40, offset = slotMs * 0.15;
       emit(scaled(p, startF0), Math.min(20, onset));
       timeMs += onset;
       emit(scaled(p, endF0, glideTo), glide);

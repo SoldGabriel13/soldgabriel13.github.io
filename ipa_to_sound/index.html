@@ -147,6 +147,14 @@
             <input id="glideSpeed" type="range" min="0.5" max="2.5" step="0.05" value="1" />
             <output id="glideSpeedValue" for="glideSpeed">1.00×</output>
         </div>
+        <div class="speed-control">
+            <label for="tobiEnabled"><input id="tobiEnabled" type="checkbox" /> ToBI prosody</label>
+        </div>
+        <div class="speed-control" id="tobiRow" style="display:none;">
+            <label for="tobi">Tones</label>
+            <input id="tobi" type="text" placeholder="H* L-L% | H* L-H%"
+                   style="flex:1; padding:0.4rem; border:2px solid var(--light-green); border-radius:8px;" />
+        </div>
         <p id="status" class="status"></p>
     </main>
     <script type="module" src="src/main.js?v=0.5.0"></script>
@@ -493,23 +501,55 @@
             return chunks;
         }
 
-        // Processes one whitespace-delimited word: splits it into
-        // stress-annotated chunks (see splitWordIntoChunks), tokenizes each,
-        // and wraps it — stressed chunks as "{prefix} b+1 {chunk} r b",
-        // every other chunk in the word as "r100 {chunk} r".
-        function processWord(rawWord) {
+        // Same work as processWord below, but returns each chunk separately
+        // (with its stressed flag) instead of joining them into one string.
+        // processWord is now just a thin wrapper around this -- identical
+        // output, just also used directly by the ToBI mapper, which needs
+        // to find individual stressed chunks to attach pitch accents to.
+        function processWordStructured(rawWord) {
             const chunks = splitWordIntoChunks(rawWord);
-            const outputs = [];
+            const result = [];
             const unmatched = [];
 
             for (const { text, stress } of chunks) {
                 const { codes, unmatched: chunkUnmatched } = tokenizeSegment(text);
                 unmatched.push(...chunkUnmatched);
                 if (codes.length === 0) continue;
-                outputs.push(wrapSegment(codes.join(' '), stress));
+                result.push({ stressed: !!stress, output: wrapSegment(codes.join(' '), stress) });
             }
 
-            return { output: outputs.join(' '), unmatched };
+            return { chunks: result, unmatched };
+        }
+
+        // Processes one whitespace-delimited word: splits it into
+        // stress-annotated chunks (see splitWordIntoChunks), tokenizes each,
+        // and wraps it — stressed chunks as "{prefix} b+1 {chunk} r b",
+        // every other chunk in the word as "r100 {chunk} r".
+        function processWord(rawWord) {
+            const { chunks, unmatched } = processWordStructured(rawWord);
+            return { output: chunks.map(c => c.output).join(' '), unmatched };
+        }
+
+        // Same splitting as ipaToPhonemeString, but returns one flat list of
+        // chunks across the whole phrase (not joined into a string) --
+        // what the ToBI mapper needs to walk stressed syllables in order.
+        function ipaPhraseToChunks(rawIpa) {
+            const text = rawIpa
+                .normalize('NFD')
+                .trim()
+                .replace(/^[\[\/]+|[\]\/]+$/g, '');
+
+            const words = text.split(/\s+/).filter(Boolean);
+            const allChunks = [];
+            const unmatched = [];
+
+            for (const rawWord of words) {
+                const { chunks, unmatched: wordUnmatched } = processWordStructured(rawWord);
+                unmatched.push(...wordUnmatched);
+                allChunks.push(...chunks);
+            }
+
+            return { chunks: allChunks, unmatched };
         }
 
         // Turns raw IPA text into a bundled.js phoneme code string. Text is
@@ -540,6 +580,85 @@
             return { phonemeString: wordOutputs.join(' '), unmatched };
         }
 
+        // --- ToBI prosody (MAE-ToBI tone tier) -----------------------------
+        // Pitch accents attach to STRESSED syllables (marked with *):
+        //   H*, L*, !H*                  -- single-tone accents
+        //   L+H*, H+!H*                  -- bitonal, target/peak is the
+        //                                    STARRED (second) tone
+        //   L*+H                         -- bitonal, star is FIRST; pitch
+        //                                    keeps rising after the accent
+        // Phrase accents (H-, L-, !H-) and boundary tones (H%, L%, or the
+        // combined L-L%/L-H%/H-H%/H-L%) describe the shape of the very END
+        // of the intonational phrase, not the whole thing.
+        const TOBI_OFFSET = { H: TONE_STEP, L: -TONE_STEP * 2, '!H': TONE_STEP * 0.5 };
+        const TOBI_BOUNDARY_CONTOUR = {
+            'L-L%': 'fall', 'H-H%': 'rise', 'L-H%': 'rise', 'H-L%': 'fall',
+            'L%': 'fall', 'H%': 'rise', 'L-': 'fall', 'H-': 'flat', '!H-': 'flat',
+        };
+
+        function parseTobiToken(tok) {
+            let m;
+            if ((m = tok.match(/^(!?H|L)\+(!?H|L)\*$/))) return { kind: 'accent', shape: 'bitonal', first: m[1], second: m[2] };
+            if ((m = tok.match(/^(!?H|L)\*\+(!?H|L)$/))) return { kind: 'accent', shape: 'trailing', first: m[1], second: m[2] };
+            if ((m = tok.match(/^(!?H|L)\*$/))) return { kind: 'accent', shape: 'mono', tone: m[1] };
+            if ((m = tok.match(/^%(!?H|L)$/))) return { kind: 'initialBoundary', tone: m[1] };
+            if (tok in TOBI_BOUNDARY_CONTOUR) return { kind: 'boundary', text: tok, contour: TOBI_BOUNDARY_CONTOUR[tok] };
+            return { kind: 'unknown', text: tok };
+        }
+
+        function tobiWrap(chunk, off) {
+            chunk.output = `b${off >= 0 ? '+' : ''}${off} ${chunk.output} b${off >= 0 ? '-' : '+'}${Math.abs(off)}`;
+        }
+        function tobiLeanForward(chunk, off) {
+            // One-sided: no undo after, so the register shift carries into
+            // whatever follows -- used where the tone doesn't resolve back
+            // by the end of the accented syllable (L*+H, downstep).
+            chunk.output = `b${off >= 0 ? '+' : ''}${off} ${chunk.output}`;
+        }
+
+        // Applies one phrase's ToBI tone string to that phrase's chunks
+        // (from ipaPhraseToChunks). Starred accents are consumed by the
+        // FIRST unmapped stressed chunk, left to right, one accent per
+        // syllable; a phrase accent/boundary tone (if present) shapes only
+        // the last chunk via the existing [contour=] mid-string mechanism,
+        // so it doesn't rescale the whole phrase.
+        function applyTobiToPhrase(chunks, toneStr, warnings) {
+            const tokens = toneStr.trim().split(/\s+/).filter(Boolean).map(parseTobiToken);
+            const stressedIdxs = chunks.map((c, i) => (c.stressed ? i : -1)).filter(i => i >= 0);
+            let nextStressed = 0;
+            let boundaryContour = null;
+
+            for (const t of tokens) {
+                if (t.kind === 'accent') {
+                    if (nextStressed >= stressedIdxs.length) {
+                        warnings.push(`ToBI: no more stressed syllables available for a pitch accent`);
+                        continue;
+                    }
+                    const chunk = chunks[stressedIdxs[nextStressed++]];
+                    if (t.shape === 'mono') {
+                        tobiWrap(chunk, TOBI_OFFSET[t.tone] ?? 0);
+                    } else if (t.shape === 'bitonal') {
+                        tobiWrap(chunk, TOBI_OFFSET[t.second] ?? 0); // star = target
+                    } else if (t.shape === 'trailing') {
+                        tobiLeanForward(chunk, TOBI_OFFSET[t.first] ?? 0); // star, carries into H after
+                    }
+                } else if (t.kind === 'boundary') {
+                    boundaryContour = t.contour;
+                } else if (t.kind === 'initialBoundary') {
+                    if (chunks.length) tobiLeanForward(chunks[0], TOBI_OFFSET[t.tone] ?? 0);
+                } else {
+                    warnings.push(`ToBI: unrecognized tone "${t.text}"`);
+                }
+            }
+
+            if (boundaryContour && boundaryContour !== 'flat' && chunks.length > 1) {
+                const head = chunks.slice(0, -1).map(c => c.output).join(' ');
+                const last = chunks[chunks.length - 1].output;
+                return `${head} [contour=${boundaryContour}] ${last}`.trim();
+            }
+            return chunks.map(c => c.output).join(' ');
+        }
+
         const input = document.getElementById('ipa');
         const button = document.getElementById('playBtn');
         const status = document.getElementById('status');
@@ -547,6 +666,13 @@
         const speedValue = document.getElementById('speedValue');
         const glideSpeedSlider = document.getElementById('glideSpeed');
         const glideSpeedValue = document.getElementById('glideSpeedValue');
+        const tobiCheckbox = document.getElementById('tobiEnabled');
+        const tobiRow = document.getElementById('tobiRow');
+        const tobiInput = document.getElementById('tobi');
+
+        tobiCheckbox.addEventListener('change', () => {
+            tobiRow.style.display = tobiCheckbox.checked ? '' : 'none';
+        });
 
         speedSlider.addEventListener('input', () => {
             speedValue.textContent = `${Number(speedSlider.value).toFixed(2)}×`;
@@ -567,7 +693,32 @@
                 return;
             }
 
-            const { phonemeString, unmatched } = ipaToPhonemeString(raw);
+            let phonemeString, unmatched;
+            if (tobiCheckbox.checked) {
+                // IPA phrases are separated by "%" (ToBI's own boundary-tone
+                // symbol, reused here as the phrase divider); the tone tier
+                // is separated by "|", one section per IPA phrase. Phrases
+                // are rejoined with "." so each one is also its own
+                // sentence for the sequencer's contour engine.
+                const ipaPhrases = raw.split('%').map(s => s.trim()).filter(Boolean);
+                const tobiPhrases = tobiInput.value.split('|').map(s => s.trim());
+                if (tobiInput.value.trim() && tobiPhrases.length !== ipaPhrases.length) {
+                    console.warn(`ToBI has ${tobiPhrases.length} section(s) separated by "|" but the IPA has ${ipaPhrases.length} section(s) separated by "%" -- extra sections on either side are ignored.`);
+                }
+                const allUnmatched = [];
+                const tobiWarnings = [];
+                const phraseStrings = ipaPhrases.map((phraseText, i) => {
+                    const { chunks, unmatched: phraseUnmatched } = ipaPhraseToChunks(phraseText);
+                    allUnmatched.push(...phraseUnmatched);
+                    const toneStr = tobiPhrases[i];
+                    return toneStr ? applyTobiToPhrase(chunks, toneStr, tobiWarnings) : chunks.map(c => c.output).join(' ');
+                });
+                if (tobiWarnings.length) console.warn(tobiWarnings.join('; '));
+                phonemeString = phraseStrings.filter(Boolean).join(' . ');
+                unmatched = allUnmatched;
+            } else {
+                ({ phonemeString, unmatched } = ipaToPhonemeString(raw));
+            }
 
             if (!phonemeString) {
                 setStatus('No recognizable IPA symbols found.', true);
