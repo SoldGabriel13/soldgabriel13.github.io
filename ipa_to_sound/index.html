@@ -617,8 +617,43 @@
         // sequence), tone marking, X̣ as a general modifier (use the
         // literal retroflex IPA character instead), nested parentheses.
 // --- Phoneme feature table for the auto-classifier -------------------------
+        // --- Phonemic mode: sound-change rule engine ------------------------
+        // Auto-classifies IPA phonemes by articulatory features (place,
+        // manner, voice, height, backness) into the natural classes below,
+        // then applies an ordered list of generative sound-change rules
+        // (TARGET > OUTPUT, optionally "/ LEFT_RIGHT", with ! for
+        // exceptions) to a phonemic input string. Arrows >, →, and -> are
+        // interchangeable. The result is treated as an allophonic
+        // transcription and run through the normal pronunciation pipeline.
+        //
+        // Supported: literal segments, {a,b,c} alternation sets, natural
+        // classes (A-Z), Ø (delete/insert), X0 (copy the matched segment
+        // unchanged), stress marking -- prefix ´/'/", or suffix combining
+        // acute (V́) -- meaning "stressed X", nasal marking -- prefix ~,
+        // suffix combining tilde (Ṽ), or bracket [+nas]/[-nas] -- meaning
+        // "nasal(ized) X" (as a TARGET: must already be nasal/non-nasal; as
+        // an OUTPUT: nasalize/denasalize the matched segment), #/$/%
+        // boundaries (# auto-inserted at word edges), a single level of
+        // "(X)" for zero-or-more, a bare "stressed"/"unstressed" condition
+        // in place of an environment, and one "!" exception clause (a full
+        // LEFT_RIGHT environment) per rule. A rule with no "/" at all
+        // applies unconditionally, everywhere. Feature-changing output (a
+        // bare class letter, e.g. "T > D") picks the class member closest
+        // in place/manner to the matched input segment -- or, if the
+        // matched segment already belongs to that class, leaves it as-is
+        // rather than hunting for a "nearest" alternative.
+        //
+        // NOT implemented: Xn/Xx (nth/all of a sequence), tone marking, X̣
+        // as a general modifier (use the literal retroflex IPA character
+        // instead), nested parentheses, multi-segment backreference
+        // targets (V0V0, C0C0 -- "two identical segments in a row"), labeled
+        // positional variables (V1_V2, C1_C2), feature-VALUE exceptions
+        // like "! C = S" (only a full "! LEFT_RIGHT" exception environment
+        // is supported), "_?" wildcard, and multi-arrow historical chains
+        // in one rule (kl > kˎ > tʃ > ʃ -- write the final result directly,
+        // or as separate ordered rules).
+// --- Phoneme feature table (unchanged from before) -------------------------
 const CONSONANTS = {
-  // stops
   p:{manner:'stop',place:'bilabial',voice:false}, b:{manner:'stop',place:'bilabial',voice:true},
   t:{manner:'stop',place:'alveolar',voice:false}, d:{manner:'stop',place:'alveolar',voice:true},
   'ʈ':{manner:'stop',place:'retroflex',voice:false}, 'ɖ':{manner:'stop',place:'retroflex',voice:true},
@@ -626,12 +661,10 @@ const CONSONANTS = {
   k:{manner:'stop',place:'velar',voice:false}, g:{manner:'stop',place:'velar',voice:true},
   q:{manner:'stop',place:'uvular',voice:false}, 'ɢ':{manner:'stop',place:'uvular',voice:true},
   'ʔ':{manner:'stop',place:'glottal',voice:false},
-  // nasals
   m:{manner:'nasal',place:'bilabial',voice:true}, 'ɱ':{manner:'nasal',place:'labiodental',voice:true},
   n:{manner:'nasal',place:'alveolar',voice:true}, 'ɳ':{manner:'nasal',place:'retroflex',voice:true},
   'ɲ':{manner:'nasal',place:'palatal',voice:true}, 'ŋ':{manner:'nasal',place:'velar',voice:true},
   'ɴ':{manner:'nasal',place:'uvular',voice:true},
-  // fricatives
   'ɸ':{manner:'fricative',place:'bilabial',voice:false}, 'β':{manner:'fricative',place:'bilabial',voice:true},
   f:{manner:'fricative',place:'labiodental',voice:false}, v:{manner:'fricative',place:'labiodental',voice:true},
   'θ':{manner:'fricative',place:'dental',voice:false}, 'ð':{manner:'fricative',place:'dental',voice:true},
@@ -643,31 +676,26 @@ const CONSONANTS = {
   'χ':{manner:'fricative',place:'uvular',voice:false}, 'ʁ':{manner:'fricative',place:'uvular',voice:true},
   'ħ':{manner:'fricative',place:'pharyngeal',voice:false}, 'ʕ':{manner:'fricative',place:'pharyngeal',voice:true},
   h:{manner:'fricative',place:'glottal',voice:false}, 'ɦ':{manner:'fricative',place:'glottal',voice:true},
-  // liquids
   l:{manner:'liquid',place:'alveolar',voice:true}, 'ɭ':{manner:'liquid',place:'retroflex',voice:true},
   'ʎ':{manner:'liquid',place:'palatal',voice:true}, 'ʟ':{manner:'liquid',place:'velar',voice:true},
   r:{manner:'liquid',place:'alveolar',voice:true}, 'ɾ':{manner:'liquid',place:'alveolar',voice:true},
   'ɽ':{manner:'liquid',place:'retroflex',voice:true},
-  // approximants / glides (W = true semivowels, subset of J)
   'ʋ':{manner:'approximant',place:'labiodental',voice:true}, 'ɹ':{manner:'approximant',place:'alveolar',voice:true},
   'ɻ':{manner:'approximant',place:'retroflex',voice:true},
   j:{manner:'approximant',place:'palatal',voice:true,glide:true},
   'ɰ':{manner:'approximant',place:'velar',voice:true,glide:true},
   w:{manner:'approximant',place:'labiovelar',voice:true,glide:true},
   'ɥ':{manner:'approximant',place:'labiopalatal',voice:true,glide:true},
-  // clicks (Q also covers these)
   'ǀ':{manner:'click',place:'dental',voice:false}, 'ǃ':{manner:'click',place:'alveolar',voice:false},
   'ǂ':{manner:'click',place:'palatal',voice:false}, 'ǁ':{manner:'click',place:'lateral',voice:false},
   'ʘ':{manner:'click',place:'bilabial',voice:false},
 };
-// affricates: built from stop+fricative pairs tied together (t͡s style)
 const AFFRICATE_PAIRS = [['t','s'],['d','z'],['t','ʃ'],['d','ʒ'],['t','ɕ'],['d','ʑ'],['ʈ','ʂ'],['ɖ','ʐ']];
 const TIE = '\u0361';
 for (const [stop, fric] of AFFRICATE_PAIRS) {
   const stopF = CONSONANTS[stop] || {};
   CONSONANTS[stop+TIE+fric] = { manner:'affricate', place: stopF.place, voice: stopF.voice };
 }
-// 'ɕ','ʑ' as standalone fricatives too (palatalized alveolar)
 CONSONANTS['ɕ'] = {manner:'fricative',place:'postalveolar',voice:false};
 CONSONANTS['ʑ'] = {manner:'fricative',place:'postalveolar',voice:true};
 
@@ -685,13 +713,12 @@ const VOWELS = {
   a:{height:'low',backness:'front'}, 'ɶ':{height:'low',backness:'front'}, 'ɑ':{height:'low',backness:'back'}, 'ɒ':{height:'low',backness:'back'},
 };
 for (const v in VOWELS) VOWELS[v] = { manner:'vowel', voice:true, ...VOWELS[v] };
-
 const PHONEME_FEATURES = { ...CONSONANTS, ...VOWELS };
 
 function classesOf(baseSymbol) {
   const f = PHONEME_FEATURES[baseSymbol];
   const classes = new Set();
-  if (!f) return classes; // unknown symbol: no classes matched, caller falls back to literal-only matching
+  if (!f) return classes;
   const isVowel = f.manner === 'vowel';
   classes.add('C');
   if (isVowel) { classes.delete('C'); classes.add('V'); classes.add('U'); }
@@ -714,20 +741,18 @@ function classesOf(baseSymbol) {
   return classes;
 }
 
-
-
+// --- Segmentation ------------------------------------------------------
 const CLASS_LETTERS = new Set('ABCDEFHJKLMNOPQRSTUVWZ'.split(''));
 const BOUNDARY_CHARS = new Set(['#', '$', '%']);
-const STRESS_MARKS = new Set(['\u02C8', "'", '\u0301']); // ˈ, ascii ', combining acute (´V)
+// Stress prefix marks: ˈ (IPA), ' (ascii stand-in), ” (as given by the user).
+// Combining acute (0301) is handled separately as a SUFFIX mark (V́ / ´V).
+const STRESS_PREFIX = new Set(['\u02C8', "'", '\u201D', '\u00B4']);
+const NASAL_PREFIX = '~';
 
-// --- Segmentation: turn a phonemic string into linguistic segments --------
-// One segment = one base letter + any combining diacritics + (for tie bars)
-// the linked following base letter, e.g. "t͡ʃ" is ONE segment. # $ % are
-// pushed as their own boundary "segments". A stress mark immediately
-// before a segment marks that segment `stressed`.
 function isCombining(ch) {
   return ch && /\p{Mn}/u.test(ch) && ch !== TIE;
 }
+
 function segmentPhonemic(text) {
   const t = text.normalize('NFD');
   const segments = [];
@@ -737,16 +762,17 @@ function segmentPhonemic(text) {
     const ch = t[i];
     if (/\s/.test(ch)) { i++; continue; }
     if (BOUNDARY_CHARS.has(ch)) { segments.push({ text: ch, boundary: ch, stressed: false }); i++; continue; }
-    if (STRESS_MARKS.has(ch)) { pendingStress = true; i++; continue; }
+    if (STRESS_PREFIX.has(ch)) { pendingStress = true; i++; continue; }
+    if (ch === '\u0301' && segments.length === 0) { pendingStress = true; i++; continue; } // stray leading acute
     if (i >= t.length) break;
     let seg = t[i]; i++;
     while (i < t.length) {
       if (t[i] === TIE) {
         seg += t[i]; i++;
         if (i < t.length) { seg += t[i]; i++; }
-      } else if (isCombining(t[i])) {
-        seg += t[i]; i++;
-      } else break;
+      } else if (t[i] === '\u0301') { pendingStress = true; i++; } // suffix acute = stress (V́)
+      else if (isCombining(t[i])) { seg += t[i]; i++; }
+      else break;
     }
     segments.push({ text: seg.normalize('NFC'), boundary: null, stressed: pendingStress });
     pendingStress = false;
@@ -755,83 +781,164 @@ function segmentPhonemic(text) {
 }
 
 function baseOf(segText) {
-  // strips combining marks (but keeps a tie-bar affricate's two base
-  // letters together) to look the segment up in PHONEME_FEATURES
-  return segText.normalize('NFD').replace(/[\u0300-\u036F]/g, m => m === TIE ? m : '').normalize('NFC')
-    .split('').filter(c => c !== '\u0361' ? true : true).join('')
-    .normalize('NFD').replace(/[\u0300-\u036F]/g, (m) => (m === TIE ? m : '')).normalize('NFC');
+  return segText.normalize('NFD').replace(/[\u0300-\u036F]/g, m => (m === TIE ? m : '')).normalize('NFC');
 }
-
+function segIsNasal(seg) {
+  return !seg.boundary && seg.text.normalize('NFD').includes('\u0303');
+}
 function segMatchesClass(seg, letter) {
   if (seg.boundary) return false;
-  const base = baseOf(seg.text);
-  return classesOf(base).has(letter);
+  return classesOf(baseOf(seg.text)).has(letter);
 }
 
-// --- Environment element parsing -------------------------------------------
+// --- Shared atom parsing -----------------------------------------------
+// One "atom" = an optional stress mark (prefix ´/'/”, or suffix combining
+// acute), an optional nasal mark (prefix ~, suffix combining tilde, or a
+// bracket [+nas]/[-nas] suffix), and a base: a class letter, Ø, X0, or a
+// literal IPA run (which may itself be a {a,b,c} alternation set).
+// Returns { kind: 'null'|'copy'|'class'|'literal'|'alt', ... }.
+function parseAtom(raw) {
+  let s = raw.trim();
+  if (s === 'Ø') return { kind: 'null' };
+  if (s === 'X0') return { kind: 'copy' };
+
+  let stressed, nasal;
+  while (s.length && (STRESS_PREFIX.has(s[0]))) { stressed = true; s = s.slice(1); }
+  while (s.length && s[0] === NASAL_PREFIX) { nasal = true; s = s.slice(1); }
+
+  const bracketM = s.match(/^(.*)\[([+-])nas\]$/);
+  if (bracketM) { s = bracketM[1]; nasal = bracketM[2] === '+'; }
+
+  // {a,b,c} alternation set -- each option parsed recursively
+  if (s.startsWith('{') && s.endsWith('}')) {
+    const options = s.slice(1, -1).split(',').map(o => parseAtom(o.trim()));
+    return { kind: 'alt', options, stressed, nasal };
+  }
+
+  let nfd = s.normalize('NFD');
+  while (nfd.length > 1) {
+    const last = nfd[nfd.length - 1];
+    if (last === '\u0301') { stressed = true; nfd = nfd.slice(0, -1); }
+    else if (last === '\u0303') { nasal = true; nfd = nfd.slice(0, -1); }
+    else break;
+  }
+  s = nfd.normalize('NFC');
+
+  if (s.length === 1 && CLASS_LETTERS.has(s)) return { kind: 'class', letter: s, stressed, nasal };
+  const segs = segmentPhonemic(s);
+  return { kind: 'literal', text: segs.map(x => x.text).join(''), stressed, nasal };
+}
+
+function atomToMatcher(atom) {
+  if (atom.kind === 'null') return { type: 'null' };
+  if (atom.kind === 'copy') return { type: 'literal', text: 'X0' }; // X0 as a bare target isn't meaningful; treat literally
+  if (atom.kind === 'alt') return { type: 'altGroup', options: atom.options.map(atomToMatcher) };
+  if (atom.kind === 'class') return { type: 'class', letter: atom.letter, stressed: atom.stressed, nasal: atom.nasal };
+  return { type: 'literal', text: atom.text, stressed: atom.stressed, nasal: atom.nasal };
+}
+
+function atomToOutput(atom) {
+  if (atom.kind === 'null') return { type: 'null' };
+  if (atom.kind === 'copy') return { type: 'copy' };
+  if (atom.kind === 'alt') return atomToOutput(atom.options[0]); // deterministic: first alternative
+  if (atom.nasal !== undefined) return { type: 'featureToggle', nasal: atom.nasal };
+  if (atom.kind === 'class') return { type: 'class', letter: atom.letter };
+  return { type: 'literal', text: atom.text };
+}
+
+
+
 // Parses one side of a rule's environment (left or right of "_") into a
-// list of matcher objects. Supports: class letters (optionally stress-
-// marked, e.g. ´V), literal IPA text, # $ % boundaries, and a single-level
-// "(X)" for "zero or more X".
+// list of matcher objects: class letters (optionally stress/nasal-marked),
+// literal IPA text, {a,b,c} alternation, # $ % boundaries, and a single
+// level of "(X)" for zero-or-more X.
 function parseEnvSide(spec) {
+  const s = spec.normalize('NFD');
   const matchers = [];
   let i = 0;
-  while (i < spec.length) {
-    const ch = spec[i];
+  while (i < s.length) {
+    const ch = s[i];
+    if (/\s/.test(ch)) { i++; continue; }
     if (ch === '(') {
-      const close = spec.indexOf(')', i);
+      const close = findMatchingParen(s, i);
       if (close === -1) throw new Error(`unmatched "(" in environment "${spec}"`);
-      const inner = parseEnvSide(spec.slice(i + 1, close));
+      const inner = parseEnvSide(s.slice(i + 1, close));
       matchers.push({ type: 'optional', inner });
       i = close + 1;
       continue;
     }
     if (BOUNDARY_CHARS.has(ch)) { matchers.push({ type: 'boundary', char: ch }); i++; continue; }
-    if (ch === '\u00B4' || ch === "'") {
-      // stress mark prefixed to the NEXT class letter (´V / 'V)
-      i++;
-      if (i < spec.length && CLASS_LETTERS.has(spec[i])) {
-        matchers.push({ type: 'class', letter: spec[i], stressed: true });
-        i++;
-      }
+    if (ch === '\u00D8' || ch === 'Ø') { i++; continue; } // "nothing"
+    if (ch === '{') {
+      const close = s.indexOf('}', i);
+      if (close === -1) throw new Error(`unmatched "{" in environment "${spec}"`);
+      const atom = parseAtom(s.slice(i, close + 1).normalize('NFC'));
+      matchers.push(atomToMatcher(atom));
+      i = close + 1;
       continue;
     }
-    if (CLASS_LETTERS.has(ch)) { matchers.push({ type: 'class', letter: ch }); i++; continue; }
-    if (ch === 'Ø') { i++; continue; } // "nothing" -- contributes no matcher
-    // literal IPA run: consume one segment's worth (base + diacritics/tie)
-    const segs = segmentPhonemic(ch);
-    if (segs.length) { matchers.push({ type: 'literal', text: segs[0].text }); }
-    i++;
+    // one atom: optional prefix marks + base (+ combining suffixes, tie)
+    const { atomText, next } = consumeAtomSpan(s, i);
+    const atom = parseAtom(atomText.normalize('NFC'));
+    matchers.push(atomToMatcher(atom));
+    i = next;
   }
   return matchers;
 }
 
+function findMatchingParen(s, openIdx) {
+  let depth = 0;
+  for (let i = openIdx; i < s.length; i++) {
+    if (s[i] === '(') depth++;
+    else if (s[i] === ')') { depth--; if (depth === 0) return i; }
+  }
+  return -1;
+}
+
+// Consumes one atom's raw text span starting at i: prefix stress/nasal
+// marks, one base char, then any tie-linked char / combining diacritics.
+function consumeAtomSpan(s, i) {
+  const STRESS_PREFIX = new Set(['\u02C8', "'", '\u201D', '\u00B4']);
+  const TIE = '\u0361';
+  let start = i;
+  while (i < s.length && STRESS_PREFIX.has(s[i])) i++;
+  while (i < s.length && s[i] === '~') i++;
+  if (i >= s.length) return { atomText: s.slice(start, i), next: i };
+  i++; // base char
+  while (i < s.length) {
+    if (s[i] === TIE) { i++; if (i < s.length) i++; }
+    else if (/\p{Mn}/u.test(s[i])) i++;
+    else break;
+  }
+  // trailing bracket feature suffix
+  if (s.slice(i, i + 6) === '[+nas]' || s.slice(i, i + 6) === '[-nas]') i += 6;
+  return { atomText: s.slice(start, i), next: i };
+}
+
 function matchOneSeg(seg, matcher) {
   if (matcher.type === 'boundary') return seg.boundary === matcher.char;
-  if (matcher.type === 'literal') return !seg.boundary && seg.text === matcher.text;
+  if (matcher.type === 'altGroup') return matcher.options.some(opt => matchOneSeg(seg, opt));
+  if (matcher.type === 'literal') {
+    if (seg.boundary || seg.text !== matcher.text) return false;
+    if (matcher.nasal !== undefined && segIsNasal(seg) !== matcher.nasal) return false;
+    return true;
+  }
   if (matcher.type === 'class') {
     if (seg.boundary) return false;
     if (matcher.stressed && !seg.stressed) return false;
+    if (matcher.nasal !== undefined && segIsNasal(seg) !== matcher.nasal) return false;
     return segMatchesClass(seg, matcher.letter);
   }
   return false;
 }
 
-// Matches `matchers` against `segments` starting at `startIdx`, moving in
-// `dir` (+1 for right context, -1 for left context, where segments are fed
-// in already-reversed order for left so this can stay one direction).
-// Returns true/false; 'optional' backtracks over 0..N repeats.
 function matchSide(segments, startIdx, matchers) {
   function tryFrom(mIdx, sIdx) {
     if (mIdx >= matchers.length) return true;
     const m = matchers[mIdx];
     if (m.type === 'optional') {
-      // try consuming 0, 1, 2, ... repeats of inner, longest-alternative-
-      // friendly backtracking (short input in practice, fine to be simple)
-      let s = sIdx;
-      const tryCounts = [];
-      let cur = s;
-      tryCounts.push(cur);
+      const tryCounts = [sIdx];
+      let cur = sIdx;
       while (cur < segments.length && matchOneSeg(segments[cur], m.inner[0])) {
         cur++;
         tryCounts.push(cur);
@@ -850,55 +957,66 @@ function matchSide(segments, startIdx, matchers) {
 
 
 
+const ARROW_RE = /\u2192|->/g; // → and -> both normalize to >
 
-// Parses one rule line: "TARGET > OUTPUT / LEFT_RIGHT" with an optional
-// "! EXCEPTION_ENV" tail. Returns null (and pushes a warning) if malformed.
 function parseRule(line, warnings) {
-  const bangSplit = line.split('!');
+  let raw = line.replace(ARROW_RE, '>');
+  // strip a trailing plain-English parenthetical note, e.g. "(irregular)"
+  raw = raw.replace(/\([a-zA-Z][a-zA-Z \-]*\)\s*$/, m => /[øØ#$%]/.test(m) ? m : '').trim();
+
+  const bangSplit = raw.split('!');
   const main = bangSplit[0].trim();
   const exceptionSpec = bangSplit.length > 1 ? bangSplit.slice(1).join('!').trim() : null;
 
-  const m = main.match(/^(.+?)>(.+?)\/(.+)$/);
-  if (!m) { warnings.push(`Sound change: couldn't parse rule "${line}" (expected TARGET > OUTPUT / LEFT_RIGHT)`); return null; }
-  const [, targetRaw, outputRaw, envRaw] = m.map(s => s.trim());
-
-  const envParts = envRaw.split('_');
-  if (envParts.length !== 2) { warnings.push(`Sound change: environment in "${line}" needs exactly one "_"`); return null; }
-
-  let leftMatchers, rightMatchers, exceptionLeft = null, exceptionRight = null;
-  try {
-    leftMatchers = parseEnvSide(envParts[0].trim()).reverse(); // reversed: matched backward from target
-    rightMatchers = parseEnvSide(envParts[1].trim());
-    if (exceptionSpec) {
-      const exParts = exceptionSpec.split('_');
-      if (exParts.length === 2) {
-        exceptionLeft = parseEnvSide(exParts[0].trim()).reverse();
-        exceptionRight = parseEnvSide(exParts[1].trim());
-      } else {
-        warnings.push(`Sound change: exception clause in "${line}" needs exactly one "_", ignoring exception`);
-      }
+  const m = main.match(/^(.+?)>(.+?)(?:\/(.+))?$/);
+  if (!m) {
+    if (/^[A-Z]0[A-Z]0/.test(main.trim()) || /^C0C0/.test(main.trim())) {
+      warnings.push(`Sound change: "${line}" uses a repeated-identical-segment target (like V0V0 or C0C0), which needs backreference matching across TWO segments -- not supported (see conversation: this is a different complexity tier from the rest of the notation)`);
+    } else {
+      warnings.push(`Sound change: couldn't parse rule "${line}" (expected TARGET > OUTPUT, optionally with / LEFT_RIGHT)`);
     }
-  } catch (e) {
-    warnings.push(`Sound change: ${e.message} in rule "${line}"`);
     return null;
   }
+  const [targetRaw, outputRaw, envRawOrUndef] = m.slice(1).map(s => (s !== undefined ? s.trim() : s));
+  const envRaw = envRawOrUndef ?? ''; // no "/" at all -- rule applies unconditionally, everywhere
 
-  const target = targetRaw === 'Ø' ? { type: 'null' }
-    : (CLASS_LETTERS.has(targetRaw) && targetRaw.length === 1) ? { type: 'class', letter: targetRaw }
-    : { type: 'literal', text: segmentPhonemic(targetRaw).map(s => s.text).join('') };
+  const hasEnv = envRawOrUndef !== undefined;
 
-  const output = outputRaw === 'Ø' ? { type: 'null' }
-    : outputRaw === 'X0' ? { type: 'copy' }
-    : (CLASS_LETTERS.has(outputRaw) && outputRaw.length === 1) ? { type: 'class', letter: outputRaw }
-    : { type: 'literal', text: segmentPhonemic(outputRaw).map(s => s.text).join('') };
+  // bare "stressed" / "unstressed" condition (no environment context needed)
+  let stressCondition = null;
+  if (hasEnv && /^stressed$/i.test(envRaw)) stressCondition = true;
+  else if (hasEnv && /^unstressed$/i.test(envRaw)) stressCondition = false;
 
-  return { raw: line, target, output, left: leftMatchers, right: rightMatchers, exceptionLeft, exceptionRight };
+  let leftMatchers = [], rightMatchers = [], exceptionLeft = null, exceptionRight = null;
+  if (!hasEnv) {
+    // no "/" at all: rule applies unconditionally, everywhere (empty
+    // matcher lists trivially match any context)
+  } else if (stressCondition === null) {
+    const envParts = envRaw.split('_');
+    if (envParts.length !== 2) { warnings.push(`Sound change: environment in "${line}" needs exactly one "_" (or the word "stressed"/"unstressed")`); return null; }
+    try {
+      leftMatchers = parseEnvSide(envParts[0].trim()).reverse();
+      rightMatchers = parseEnvSide(envParts[1].trim());
+    } catch (e) { warnings.push(`Sound change: ${e.message} in rule "${line}"`); return null; }
+  }
+  if (exceptionSpec) {
+    const exParts = exceptionSpec.split('_');
+    if (exParts.length === 2) {
+      try {
+        exceptionLeft = parseEnvSide(exParts[0].trim()).reverse();
+        exceptionRight = parseEnvSide(exParts[1].trim());
+      } catch (e) { warnings.push(`Sound change: exception clause error in "${line}": ${e.message}`); }
+    } else {
+      warnings.push(`Sound change: exception clause in "${line}" isn't a LEFT_RIGHT environment or is a feature-comparison form ("! C2 = L") that isn't supported -- ignoring the exception, rule applies unconditionally`);
+    }
+  }
+
+  const target = atomToMatcher(parseAtom(targetRaw));
+  const output = atomToOutput(parseAtom(outputRaw));
+
+  return { raw: line, target, output, left: leftMatchers, right: rightMatchers, exceptionLeft, exceptionRight, stressCondition };
 }
 
-// Picks the OUTPUT class member closest to the matched input segment --
-// same place of articulation preferred, then same manner, else falls back
-// to the first known member of the class. Used for feature-changing rules
-// like "T > D" (devoiced stop -> voiced stop, same place).
 function nearestInClass(letter, matchedBase) {
   const inFeat = PHONEME_FEATURES[matchedBase] || {};
   let best = null, bestScore = -1;
@@ -918,43 +1036,57 @@ function nearestInClass(letter, matchedBase) {
 function resolveOutput(output, matchedSeg, warnings) {
   if (output.type === 'null') return '';
   if (output.type === 'copy') return matchedSeg ? matchedSeg.text : '';
+  if (output.type === 'featureToggle') {
+    if (!matchedSeg) { warnings.push('Sound change: feature-toggle output needs a matched segment'); return ''; }
+    let t = matchedSeg.text.normalize('NFD');
+    if (output.nasal === true) { if (!t.includes('\u0303')) t += '\u0303'; }
+    else if (output.nasal === false) t = t.replace(/\u0303/g, '');
+    return t.normalize('NFC');
+  }
   if (output.type === 'literal') return output.text;
   if (output.type === 'class') {
     const base = matchedSeg ? baseOf(matchedSeg.text) : null;
+    if (base && classesOf(base).has(output.letter)) return base; // already a member: no change needed
     const sym = nearestInClass(output.letter, base);
-    if (!sym) { warnings.push(`Sound change: no known phoneme found for class "${output.letter}" as output`); return matchedSeg ? matchedSeg.text : ''; }
+    if (!sym) { warnings.push(`Sound change: no known phoneme for output class "${output.letter}"`); return matchedSeg ? matchedSeg.text : ''; }
     return sym;
   }
   return matchedSeg ? matchedSeg.text : '';
 }
 
-function targetMatches(seg, target) {
-  if (target.type === 'null') return false; // handled separately (insertion scans gaps, not segments)
-  if (target.type === 'literal') return !seg.boundary && seg.text === target.text;
-  if (target.type === 'class') return !seg.boundary && classesOf(baseOf(seg.text)).has(target.letter);
+function targetMatches(seg, target, stressCondition) {
+  if (target.type === 'null') return false;
+  if (stressCondition !== null && seg.stressed !== stressCondition) return false;
+  if (target.type === 'altGroup') return target.options.some(o => targetMatches(seg, o, null));
+  if (target.type === 'literal') {
+    if (seg.boundary || seg.text !== target.text) return false;
+    if (target.nasal !== undefined && segIsNasal(seg) !== target.nasal) return false;
+    return true;
+  }
+  if (target.type === 'class') {
+    if (seg.boundary) return false;
+    if (target.stressed && !seg.stressed) return false;
+    if (target.nasal !== undefined && segIsNasal(seg) !== target.nasal) return false;
+    return classesOf(baseOf(seg.text)).has(target.letter);
+  }
   return false;
 }
 
-function envMatchesAt(segments, i, rule, left, right) {
+function envMatchesAt(segments, i, left, right) {
   const before = segments.slice(0, i).reverse();
   const after = segments.slice(i + 1);
   return matchSide(before, 0, left) && matchSide(after, 0, right);
 }
 
-// Applies one rule to `segments` in a single left-to-right pass, testing
-// environment against the ORIGINAL (pre-this-rule) array so multiple
-// matches within one rule don't interact with each other's replacements.
 function applyRule(segments, rule, warnings) {
   const out = [];
   if (rule.target.type === 'null') {
-    // Ø > X / L_R : insertion. Scan GAP positions (including before the
-    // first and after the last segment).
     for (let i = 0; i <= segments.length; i++) {
-      out.push(...(i < segments.length ? [] : []));
       const before = segments.slice(0, i).reverse();
       const after = segments.slice(i);
       const envOk = matchSide(before, 0, rule.left) && matchSide(after, 0, rule.right);
-      const excluded = rule.exceptionLeft && matchSide(before, 0, rule.exceptionLeft) && matchSide(after, 0, rule.exceptionRight);
+      const excluded = envOk && rule.exceptionLeft &&
+        matchSide(before, 0, rule.exceptionLeft) && matchSide(after, 0, rule.exceptionRight);
       if (envOk && !excluded) {
         const text = resolveOutput(rule.output, null, warnings);
         if (text) out.push({ text, boundary: null, stressed: false });
@@ -966,14 +1098,14 @@ function applyRule(segments, rule, warnings) {
 
   for (let i = 0; i < segments.length; i++) {
     const seg = segments[i];
-    if (targetMatches(seg, rule.target)) {
-      const envOk = envMatchesAt(segments, i, rule, rule.left, rule.right);
+    if (targetMatches(seg, rule.target, rule.stressCondition)) {
+      const envOk = rule.stressCondition !== null ? true : envMatchesAt(segments, i, rule.left, rule.right);
       const excluded = envOk && rule.exceptionLeft &&
-        envMatchesAt(segments, i, rule, rule.exceptionLeft, rule.exceptionRight);
+        envMatchesAt(segments, i, rule.exceptionLeft, rule.exceptionRight);
       if (envOk && !excluded) {
         const text = resolveOutput(rule.output, seg, warnings);
         if (text) out.push({ text, boundary: null, stressed: seg.stressed });
-        continue; // deleted if text is empty
+        continue;
       }
     }
     out.push(seg);
@@ -981,9 +1113,6 @@ function applyRule(segments, rule, warnings) {
   return out;
 }
 
-// Auto-inserts # at the very start/end and at each word gap, so users don't
-// have to type boundaries by hand for ordinary word-boundary rules; $ and %
-// are left for the user to place explicitly (no auto-syllabification here).
 function withAutoWordBoundaries(text) {
   return '# ' + text.trim().replace(/\s+/g, ' # ') + ' #';
 }
@@ -1003,7 +1132,7 @@ function applySoundChanges(phonemicText, rulesText) {
   return { result: resultText, warnings };
 }
 
-        // --- Prosody/dynamics markup (extIPA-style bracketed spans) --------
+// --- Prosody/dynamics markup (extIPA-style bracketed spans) --------
         // [{𝆑 ... 𝆑}] forte (loud), [{𝆑𝆑 ... 𝆑𝆑}] fortissimo (very loud),
         // [{𝆏 ... 𝆏}] piano (quiet), [{𝆏𝆏 ... 𝆏𝆏}] pianissimo (very quiet),
         // [{allegro ... allegro}] fast, [{lento ... lento}] slow, and a

@@ -4155,6 +4155,20 @@ export const bundled = {
         "isStop": true,
         "example": "[g]"
       },
+      "GG": {
+        "voicing": 0.6,
+        "F1": 200,
+        "F2": 1990,
+        "F3": 2850,
+        "BW1": 60,
+        "BW2": 150,
+        "BW3": 280,
+        "A1": 0.5,
+        "A2": 0.5,
+        "A3": 0.4,
+        "isStop": true,
+        "example": "[ɡ]"
+      },
       "CH": {
         "voicing": 0,
         "F1": 350,
