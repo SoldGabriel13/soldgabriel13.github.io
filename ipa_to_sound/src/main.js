@@ -21,6 +21,8 @@ const DEFAULT_OPTS = {
   contourRange: 30,   // Hz swing for the contour
   contourGroupWords: 2, // words per group, only used by 'alternate'
   stressMode: 'classic', // 'classic' | 'pitch' | 'duration' | 'effort' | 'all' | 'none'
+  gain: 3.5,          // matches synth-core.js's own internal default
+  localSpeed: 1,       // region-local speed multiplier (set via [localSpeed=N])
 };
 
 let ctx = null;
@@ -54,6 +56,7 @@ function compile(text, opts) {
     baseF0, rate, scale, vibratoDepth, vibratoRate, tremoloDepth, tremoloRate,
     aspiration, tilt, effort, bank,
     speed, glideSpeed, contour, contourRange, contourGroupWords, stressMode,
+    gain, localSpeed,
   } = opts;
   return compileString(text, {
     baseF0,
@@ -73,6 +76,8 @@ function compile(text, opts) {
     contourRange,
     contourGroupWords,
     stressMode,
+    gain,
+    localSpeed,
   });
 }
 

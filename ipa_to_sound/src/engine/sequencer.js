@@ -70,6 +70,16 @@ function classifyPart(part) {
     return { type: 'directive', key: bracket[1], value: Number(bracket[2]), relative: false };
   }
 
+  // Multiplicative bracket form, e.g. [gain*2] / [gain*0.5]. Distinct from
+  // the additive +/- relative form compact letters use -- multiplying by X
+  // then later by 1/X undoes it exactly regardless of the current value,
+  // which is what a temporary "louder/quieter" span needs without knowing
+  // what baseline it's layering on top of.
+  const bracketMult = part.match(/^\[(\w+)\*(-?\d+(?:\.\d+)?)\]$/);
+  if (bracketMult) {
+    return { type: 'directive', key: bracketMult[1], value: Number(bracketMult[2]), relative: 'mult' };
+  }
+
   // String-valued directives, e.g. [contour=rise] or [stressMode=classic].
   // Kept separate from the numeric form above (which is tried first, so a
   // numeric-looking value like "[rate=110]" is never misread as a string).
@@ -328,6 +338,7 @@ export function compile(parsed, opts = {}) {
   const initialAspiration  = opts.aspiration ?? 0;
   const initialTilt        = opts.tilt ?? 0;
   const initialEffort      = opts.effort ?? 0.5;
+  const initialGain        = opts.gain ?? 3.5; // matches synth-core.js's own default so untouched content is unaffected
   const registry           = opts.registry ?? banks;
   // Overall pacing multiplier: 2 = twice as fast, 0.5 = half speed.
   // Applied as a final pass over the computed schedule (below) rather than
@@ -367,6 +378,15 @@ export function compile(parsed, opts = {}) {
   let aspiration   = initialAspiration;
   let tilt         = initialTilt;
   let effort       = initialEffort;
+  let gain         = initialGain;
+  // Region-local speed multiplier, set/reset via [localSpeed=N]. Unlike
+  // `speed` above (a single global pass over the finished schedule), this
+  // lives INSIDE the render loop and divides duration as tokens are
+  // rendered -- so it composes with (amplifies) whatever the Pace slider
+  // is already doing, rather than overriding it. A [{allegro ... allegro}]
+  // span at localSpeed=1.4 on top of a 1.5x Pace setting plays back at
+  // 1.4*1.5 = 2.1x, not a flat 1.4x.
+  let localSpeedMult = opts.localSpeed > 0 ? opts.localSpeed : 1;
   // Bare `b` / `r` / `s` / `v` / `h` / `t` / `g` reset to opts values
   const schedule = [];
   const warnings = [];
@@ -442,7 +462,7 @@ export function compile(parsed, opts = {}) {
       // the slot, then glide toward the second sound only near the very
       // end, with just a brief moment actually at the target -- like a
       // real diphthong, not a 50/50 cross-fade.
-      const onset = slotMs * 0.45, glide = slotMs * 0.40, offset = slotMs * 0.15;
+      const onset = slotMs * 0.65, glide = slotMs * 0.30, offset = slotMs * 0.05;
       emit(scaled(p, startF0), Math.min(20, onset));
       timeMs += onset;
       emit(scaled(p, endF0, glideTo), glide);
@@ -468,7 +488,7 @@ export function compile(parsed, opts = {}) {
   let syllableQueue = [];
   const flushSyllable = () => {
     if (!syllableQueue.length) { inSyllable = false; return; }
-    const slot = rate / syllableQueue.length;
+    const slot = rate / syllableQueue.length / localSpeedMult;
     for (const t of syllableQueue) {
       renderPhoneme(t, slot);
       emitPhrase(t);
@@ -486,6 +506,7 @@ export function compile(parsed, opts = {}) {
     aspiration,
     tilt,
     effort,
+    gain,
   });
 
   const emit = (target, transitionMs) => {
@@ -595,9 +616,21 @@ export function compile(parsed, opts = {}) {
           else if (t.relative) effort += t.value;
           else effort = t.value;
           break;
+        case 'gain':
+          if (t.reset) gain = initialGain;
+          else if (t.relative === 'mult') gain *= t.value;
+          else if (t.relative) gain += t.value;
+          else gain = t.value;
+          break;
+        case 'localSpeed':
+          if (t.reset) localSpeedMult = 1;
+          else if (t.relative === 'mult') localSpeedMult *= t.value;
+          else if (t.relative) localSpeedMult += t.value;
+          else localSpeedMult = t.value > 0 ? t.value : 1;
+          break;
         case 'pause':
           silence();
-          timeMs += Math.abs(t.value);
+          timeMs += Math.abs(t.value) / localSpeedMult;
           emitPhrase(t);
           break;
         case 'stressMode':
@@ -623,7 +656,7 @@ export function compile(parsed, opts = {}) {
 
     if (t.type === 'pause') {
       silence();
-      timeMs += t.ms;
+      timeMs += t.ms / localSpeedMult;
       emitPhrase(t);
       continue;
     }
@@ -636,7 +669,7 @@ export function compile(parsed, opts = {}) {
     }
 
     const useDurationStress = t.stressed && (stressMode === 'classic' || stressMode === 'duration' || stressMode === 'all');
-    const phoneRate = useDurationStress ? rate * DEFAULTS.stressDurationFactor : rate;
+    const phoneRate = (useDurationStress ? rate * DEFAULTS.stressDurationFactor : rate) / localSpeedMult;
     renderPhoneme(t, phoneRate);
     emitPhrase(t);
 

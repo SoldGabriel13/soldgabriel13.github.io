@@ -155,6 +155,20 @@
             <input id="tobi" type="text" placeholder="H* L-L% | H* L-H%"
                    style="flex:1; padding:0.4rem; border:2px solid var(--light-green); border-radius:8px;" />
         </div>
+        <div class="speed-control">
+            <label for="phonemicEnabled"><input id="phonemicEnabled" type="checkbox" /> Phonemic mode</label>
+        </div>
+        <div id="phonemicRows" style="display:none;">
+            <div class="controls">
+                <label for="phonemic" style="font-size:0.85rem; display:block; margin-bottom:0.2rem;">/ phonemes /</label>
+                <input id="phonemic" placeholder="p a t a" />
+            </div>
+            <div class="controls">
+                <label for="soundChanges" style="font-size:0.85rem; display:block; margin-bottom:0.2rem;">sound changes (one rule per line)</label>
+                <textarea id="soundChanges" rows="4" placeholder="T > D / V_V&#10;h > Ø / V_V"
+                          style="width:100%; padding:0.9rem; border:2px solid var(--light-green); border-radius:10px; font-size:1rem; box-sizing:border-box;"></textarea>
+            </div>
+        </div>
         <p id="status" class="status"></p>
     </main>
     <script type="module" src="src/main.js?v=0.5.0"></script>
@@ -580,9 +594,494 @@
             return { phonemeString: wordOutputs.join(' '), unmatched };
         }
 
-        // --- ToBI prosody (MAE-ToBI tone tier) -----------------------------
-        // Pitch accents attach to STRESSED syllables (marked with *):
-        //   H*, L*, !H*                  -- single-tone accents
+
+        // --- Phonemic mode: sound-change rule engine ------------------------
+        // Auto-classifies IPA phonemes by articulatory features (place,
+        // manner, voice, height, backness) into the natural classes below,
+        // then applies an ordered list of generative sound-change rules
+        // (TARGET > OUTPUT / LEFT_RIGHT, with ! for exceptions) to a
+        // phonemic input string. The result is treated as an allophonic
+        // transcription and run through the normal pronunciation pipeline.
+        //
+        // Supported: literal segments, natural classes (A-Z per the table
+        // below), Ø (delete/insert), X0 (copy the matched segment
+        // unchanged), stress-marked classes (acute or apostrophe prefix,
+        // e.g. ´V/'V = stressed vowel), #/$/% boundaries (# is
+        // auto-inserted at word edges), a single level of "(X)" for
+        // zero-or-more, and one "!" exception clause per rule.
+        // Feature-changing output (a bare class letter, e.g. "T > D")
+        // picks the class member closest in place/manner to the matched
+        // input segment.
+        //
+        // NOT implemented (see conversation): Xn/Xx (nth/all of a
+        // sequence), tone marking, X̣ as a general modifier (use the
+        // literal retroflex IPA character instead), nested parentheses.
+// --- Phoneme feature table for the auto-classifier -------------------------
+const CONSONANTS = {
+  // stops
+  p:{manner:'stop',place:'bilabial',voice:false}, b:{manner:'stop',place:'bilabial',voice:true},
+  t:{manner:'stop',place:'alveolar',voice:false}, d:{manner:'stop',place:'alveolar',voice:true},
+  'ʈ':{manner:'stop',place:'retroflex',voice:false}, 'ɖ':{manner:'stop',place:'retroflex',voice:true},
+  c:{manner:'stop',place:'palatal',voice:false}, 'ɟ':{manner:'stop',place:'palatal',voice:true},
+  k:{manner:'stop',place:'velar',voice:false}, g:{manner:'stop',place:'velar',voice:true},
+  q:{manner:'stop',place:'uvular',voice:false}, 'ɢ':{manner:'stop',place:'uvular',voice:true},
+  'ʔ':{manner:'stop',place:'glottal',voice:false},
+  // nasals
+  m:{manner:'nasal',place:'bilabial',voice:true}, 'ɱ':{manner:'nasal',place:'labiodental',voice:true},
+  n:{manner:'nasal',place:'alveolar',voice:true}, 'ɳ':{manner:'nasal',place:'retroflex',voice:true},
+  'ɲ':{manner:'nasal',place:'palatal',voice:true}, 'ŋ':{manner:'nasal',place:'velar',voice:true},
+  'ɴ':{manner:'nasal',place:'uvular',voice:true},
+  // fricatives
+  'ɸ':{manner:'fricative',place:'bilabial',voice:false}, 'β':{manner:'fricative',place:'bilabial',voice:true},
+  f:{manner:'fricative',place:'labiodental',voice:false}, v:{manner:'fricative',place:'labiodental',voice:true},
+  'θ':{manner:'fricative',place:'dental',voice:false}, 'ð':{manner:'fricative',place:'dental',voice:true},
+  s:{manner:'fricative',place:'alveolar',voice:false}, z:{manner:'fricative',place:'alveolar',voice:true},
+  'ʃ':{manner:'fricative',place:'postalveolar',voice:false}, 'ʒ':{manner:'fricative',place:'postalveolar',voice:true},
+  'ʂ':{manner:'fricative',place:'retroflex',voice:false}, 'ʐ':{manner:'fricative',place:'retroflex',voice:true},
+  'ç':{manner:'fricative',place:'palatal',voice:false}, 'ʝ':{manner:'fricative',place:'palatal',voice:true},
+  x:{manner:'fricative',place:'velar',voice:false}, 'ɣ':{manner:'fricative',place:'velar',voice:true},
+  'χ':{manner:'fricative',place:'uvular',voice:false}, 'ʁ':{manner:'fricative',place:'uvular',voice:true},
+  'ħ':{manner:'fricative',place:'pharyngeal',voice:false}, 'ʕ':{manner:'fricative',place:'pharyngeal',voice:true},
+  h:{manner:'fricative',place:'glottal',voice:false}, 'ɦ':{manner:'fricative',place:'glottal',voice:true},
+  // liquids
+  l:{manner:'liquid',place:'alveolar',voice:true}, 'ɭ':{manner:'liquid',place:'retroflex',voice:true},
+  'ʎ':{manner:'liquid',place:'palatal',voice:true}, 'ʟ':{manner:'liquid',place:'velar',voice:true},
+  r:{manner:'liquid',place:'alveolar',voice:true}, 'ɾ':{manner:'liquid',place:'alveolar',voice:true},
+  'ɽ':{manner:'liquid',place:'retroflex',voice:true},
+  // approximants / glides (W = true semivowels, subset of J)
+  'ʋ':{manner:'approximant',place:'labiodental',voice:true}, 'ɹ':{manner:'approximant',place:'alveolar',voice:true},
+  'ɻ':{manner:'approximant',place:'retroflex',voice:true},
+  j:{manner:'approximant',place:'palatal',voice:true,glide:true},
+  'ɰ':{manner:'approximant',place:'velar',voice:true,glide:true},
+  w:{manner:'approximant',place:'labiovelar',voice:true,glide:true},
+  'ɥ':{manner:'approximant',place:'labiopalatal',voice:true,glide:true},
+  // clicks (Q also covers these)
+  'ǀ':{manner:'click',place:'dental',voice:false}, 'ǃ':{manner:'click',place:'alveolar',voice:false},
+  'ǂ':{manner:'click',place:'palatal',voice:false}, 'ǁ':{manner:'click',place:'lateral',voice:false},
+  'ʘ':{manner:'click',place:'bilabial',voice:false},
+};
+// affricates: built from stop+fricative pairs tied together (t͡s style)
+const AFFRICATE_PAIRS = [['t','s'],['d','z'],['t','ʃ'],['d','ʒ'],['t','ɕ'],['d','ʑ'],['ʈ','ʂ'],['ɖ','ʐ']];
+const TIE = '\u0361';
+for (const [stop, fric] of AFFRICATE_PAIRS) {
+  const stopF = CONSONANTS[stop] || {};
+  CONSONANTS[stop+TIE+fric] = { manner:'affricate', place: stopF.place, voice: stopF.voice };
+}
+// 'ɕ','ʑ' as standalone fricatives too (palatalized alveolar)
+CONSONANTS['ɕ'] = {manner:'fricative',place:'postalveolar',voice:false};
+CONSONANTS['ʑ'] = {manner:'fricative',place:'postalveolar',voice:true};
+
+const VOWELS = {
+  i:{height:'high',backness:'front'}, y:{height:'high',backness:'front'},
+  'ɨ':{height:'high',backness:'central'}, 'ʉ':{height:'high',backness:'central'},
+  'ɯ':{height:'high',backness:'back'}, u:{height:'high',backness:'back'},
+  'ɪ':{height:'high',backness:'front'}, 'ʏ':{height:'high',backness:'front'}, 'ʊ':{height:'high',backness:'back'},
+  e:{height:'mid',backness:'front'}, 'ø':{height:'mid',backness:'front'},
+  'ɘ':{height:'mid',backness:'central'}, 'ɵ':{height:'mid',backness:'central'}, 'ə':{height:'mid',backness:'central'},
+  'ɤ':{height:'mid',backness:'back'}, o:{height:'mid',backness:'back'},
+  'ɛ':{height:'mid',backness:'front'}, 'œ':{height:'mid',backness:'front'},
+  'ɜ':{height:'mid',backness:'central'}, 'ɞ':{height:'mid',backness:'central'}, 'ʌ':{height:'mid',backness:'back'}, 'ɔ':{height:'mid',backness:'back'},
+  'æ':{height:'low',backness:'front'}, 'ɐ':{height:'low',backness:'central'},
+  a:{height:'low',backness:'front'}, 'ɶ':{height:'low',backness:'front'}, 'ɑ':{height:'low',backness:'back'}, 'ɒ':{height:'low',backness:'back'},
+};
+for (const v in VOWELS) VOWELS[v] = { manner:'vowel', voice:true, ...VOWELS[v] };
+
+const PHONEME_FEATURES = { ...CONSONANTS, ...VOWELS };
+
+function classesOf(baseSymbol) {
+  const f = PHONEME_FEATURES[baseSymbol];
+  const classes = new Set();
+  if (!f) return classes; // unknown symbol: no classes matched, caller falls back to literal-only matching
+  const isVowel = f.manner === 'vowel';
+  classes.add('C');
+  if (isVowel) { classes.delete('C'); classes.add('V'); classes.add('U'); }
+  if (isVowel && f.backness === 'back') classes.add('B');
+  if (isVowel && f.backness === 'front') classes.add('E');
+  if (f.manner === 'stop') { classes.add('S'); classes.add(f.voice ? 'D' : 'T'); }
+  if (f.manner === 'fricative') classes.add('F');
+  if (f.manner === 'affricate') classes.add('A');
+  if (f.manner === 'nasal') classes.add('N');
+  if (f.manner === 'liquid') classes.add('L');
+  if (f.manner === 'approximant') { classes.add('J'); if (f.glide) classes.add('W'); }
+  if (f.manner === 'click') classes.add('Q');
+  if (f.place === 'glottal') classes.add('H');
+  if (f.place === 'velar') classes.add('K');
+  if (f.place === 'bilabial' || f.place === 'labiodental' || f.place === 'labiovelar' || f.place === 'labiopalatal') classes.add('P');
+  if (f.place === 'uvular') classes.add('Q');
+  if (['nasal','liquid','approximant'].includes(f.manner) || isVowel) classes.add('R');
+  if (['stop','fricative','affricate'].includes(f.manner)) classes.add('O');
+  if (['fricative','approximant','liquid'].includes(f.manner) || isVowel) classes.add('Z');
+  return classes;
+}
+
+
+
+const CLASS_LETTERS = new Set('ABCDEFHJKLMNOPQRSTUVWZ'.split(''));
+const BOUNDARY_CHARS = new Set(['#', '$', '%']);
+const STRESS_MARKS = new Set(['\u02C8', "'", '\u0301']); // ˈ, ascii ', combining acute (´V)
+
+// --- Segmentation: turn a phonemic string into linguistic segments --------
+// One segment = one base letter + any combining diacritics + (for tie bars)
+// the linked following base letter, e.g. "t͡ʃ" is ONE segment. # $ % are
+// pushed as their own boundary "segments". A stress mark immediately
+// before a segment marks that segment `stressed`.
+function isCombining(ch) {
+  return ch && /\p{Mn}/u.test(ch) && ch !== TIE;
+}
+function segmentPhonemic(text) {
+  const t = text.normalize('NFD');
+  const segments = [];
+  let i = 0;
+  let pendingStress = false;
+  while (i < t.length) {
+    const ch = t[i];
+    if (/\s/.test(ch)) { i++; continue; }
+    if (BOUNDARY_CHARS.has(ch)) { segments.push({ text: ch, boundary: ch, stressed: false }); i++; continue; }
+    if (STRESS_MARKS.has(ch)) { pendingStress = true; i++; continue; }
+    if (i >= t.length) break;
+    let seg = t[i]; i++;
+    while (i < t.length) {
+      if (t[i] === TIE) {
+        seg += t[i]; i++;
+        if (i < t.length) { seg += t[i]; i++; }
+      } else if (isCombining(t[i])) {
+        seg += t[i]; i++;
+      } else break;
+    }
+    segments.push({ text: seg.normalize('NFC'), boundary: null, stressed: pendingStress });
+    pendingStress = false;
+  }
+  return segments;
+}
+
+function baseOf(segText) {
+  // strips combining marks (but keeps a tie-bar affricate's two base
+  // letters together) to look the segment up in PHONEME_FEATURES
+  return segText.normalize('NFD').replace(/[\u0300-\u036F]/g, m => m === TIE ? m : '').normalize('NFC')
+    .split('').filter(c => c !== '\u0361' ? true : true).join('')
+    .normalize('NFD').replace(/[\u0300-\u036F]/g, (m) => (m === TIE ? m : '')).normalize('NFC');
+}
+
+function segMatchesClass(seg, letter) {
+  if (seg.boundary) return false;
+  const base = baseOf(seg.text);
+  return classesOf(base).has(letter);
+}
+
+// --- Environment element parsing -------------------------------------------
+// Parses one side of a rule's environment (left or right of "_") into a
+// list of matcher objects. Supports: class letters (optionally stress-
+// marked, e.g. ´V), literal IPA text, # $ % boundaries, and a single-level
+// "(X)" for "zero or more X".
+function parseEnvSide(spec) {
+  const matchers = [];
+  let i = 0;
+  while (i < spec.length) {
+    const ch = spec[i];
+    if (ch === '(') {
+      const close = spec.indexOf(')', i);
+      if (close === -1) throw new Error(`unmatched "(" in environment "${spec}"`);
+      const inner = parseEnvSide(spec.slice(i + 1, close));
+      matchers.push({ type: 'optional', inner });
+      i = close + 1;
+      continue;
+    }
+    if (BOUNDARY_CHARS.has(ch)) { matchers.push({ type: 'boundary', char: ch }); i++; continue; }
+    if (ch === '\u00B4' || ch === "'") {
+      // stress mark prefixed to the NEXT class letter (´V / 'V)
+      i++;
+      if (i < spec.length && CLASS_LETTERS.has(spec[i])) {
+        matchers.push({ type: 'class', letter: spec[i], stressed: true });
+        i++;
+      }
+      continue;
+    }
+    if (CLASS_LETTERS.has(ch)) { matchers.push({ type: 'class', letter: ch }); i++; continue; }
+    if (ch === 'Ø') { i++; continue; } // "nothing" -- contributes no matcher
+    // literal IPA run: consume one segment's worth (base + diacritics/tie)
+    const segs = segmentPhonemic(ch);
+    if (segs.length) { matchers.push({ type: 'literal', text: segs[0].text }); }
+    i++;
+  }
+  return matchers;
+}
+
+function matchOneSeg(seg, matcher) {
+  if (matcher.type === 'boundary') return seg.boundary === matcher.char;
+  if (matcher.type === 'literal') return !seg.boundary && seg.text === matcher.text;
+  if (matcher.type === 'class') {
+    if (seg.boundary) return false;
+    if (matcher.stressed && !seg.stressed) return false;
+    return segMatchesClass(seg, matcher.letter);
+  }
+  return false;
+}
+
+// Matches `matchers` against `segments` starting at `startIdx`, moving in
+// `dir` (+1 for right context, -1 for left context, where segments are fed
+// in already-reversed order for left so this can stay one direction).
+// Returns true/false; 'optional' backtracks over 0..N repeats.
+function matchSide(segments, startIdx, matchers) {
+  function tryFrom(mIdx, sIdx) {
+    if (mIdx >= matchers.length) return true;
+    const m = matchers[mIdx];
+    if (m.type === 'optional') {
+      // try consuming 0, 1, 2, ... repeats of inner, longest-alternative-
+      // friendly backtracking (short input in practice, fine to be simple)
+      let s = sIdx;
+      const tryCounts = [];
+      let cur = s;
+      tryCounts.push(cur);
+      while (cur < segments.length && matchOneSeg(segments[cur], m.inner[0])) {
+        cur++;
+        tryCounts.push(cur);
+      }
+      for (let k = tryCounts.length - 1; k >= 0; k--) {
+        if (tryFrom(mIdx + 1, tryCounts[k])) return true;
+      }
+      return false;
+    }
+    if (sIdx >= segments.length) return false;
+    if (!matchOneSeg(segments[sIdx], m)) return false;
+    return tryFrom(mIdx + 1, sIdx + 1);
+  }
+  return tryFrom(0, startIdx);
+}
+
+
+
+
+// Parses one rule line: "TARGET > OUTPUT / LEFT_RIGHT" with an optional
+// "! EXCEPTION_ENV" tail. Returns null (and pushes a warning) if malformed.
+function parseRule(line, warnings) {
+  const bangSplit = line.split('!');
+  const main = bangSplit[0].trim();
+  const exceptionSpec = bangSplit.length > 1 ? bangSplit.slice(1).join('!').trim() : null;
+
+  const m = main.match(/^(.+?)>(.+?)\/(.+)$/);
+  if (!m) { warnings.push(`Sound change: couldn't parse rule "${line}" (expected TARGET > OUTPUT / LEFT_RIGHT)`); return null; }
+  const [, targetRaw, outputRaw, envRaw] = m.map(s => s.trim());
+
+  const envParts = envRaw.split('_');
+  if (envParts.length !== 2) { warnings.push(`Sound change: environment in "${line}" needs exactly one "_"`); return null; }
+
+  let leftMatchers, rightMatchers, exceptionLeft = null, exceptionRight = null;
+  try {
+    leftMatchers = parseEnvSide(envParts[0].trim()).reverse(); // reversed: matched backward from target
+    rightMatchers = parseEnvSide(envParts[1].trim());
+    if (exceptionSpec) {
+      const exParts = exceptionSpec.split('_');
+      if (exParts.length === 2) {
+        exceptionLeft = parseEnvSide(exParts[0].trim()).reverse();
+        exceptionRight = parseEnvSide(exParts[1].trim());
+      } else {
+        warnings.push(`Sound change: exception clause in "${line}" needs exactly one "_", ignoring exception`);
+      }
+    }
+  } catch (e) {
+    warnings.push(`Sound change: ${e.message} in rule "${line}"`);
+    return null;
+  }
+
+  const target = targetRaw === 'Ø' ? { type: 'null' }
+    : (CLASS_LETTERS.has(targetRaw) && targetRaw.length === 1) ? { type: 'class', letter: targetRaw }
+    : { type: 'literal', text: segmentPhonemic(targetRaw).map(s => s.text).join('') };
+
+  const output = outputRaw === 'Ø' ? { type: 'null' }
+    : outputRaw === 'X0' ? { type: 'copy' }
+    : (CLASS_LETTERS.has(outputRaw) && outputRaw.length === 1) ? { type: 'class', letter: outputRaw }
+    : { type: 'literal', text: segmentPhonemic(outputRaw).map(s => s.text).join('') };
+
+  return { raw: line, target, output, left: leftMatchers, right: rightMatchers, exceptionLeft, exceptionRight };
+}
+
+// Picks the OUTPUT class member closest to the matched input segment --
+// same place of articulation preferred, then same manner, else falls back
+// to the first known member of the class. Used for feature-changing rules
+// like "T > D" (devoiced stop -> voiced stop, same place).
+function nearestInClass(letter, matchedBase) {
+  const inFeat = PHONEME_FEATURES[matchedBase] || {};
+  let best = null, bestScore = -1;
+  for (const sym in PHONEME_FEATURES) {
+    if (!classesOf(sym).has(letter)) continue;
+    const f = PHONEME_FEATURES[sym];
+    let score = 0;
+    if (f.place && inFeat.place && f.place === inFeat.place) score += 2;
+    if (f.manner && inFeat.manner && f.manner === inFeat.manner) score += 1;
+    if (f.backness && inFeat.backness && f.backness === inFeat.backness) score += 2;
+    if (f.height && inFeat.height && f.height === inFeat.height) score += 1;
+    if (score > bestScore) { bestScore = score; best = sym; }
+  }
+  return best;
+}
+
+function resolveOutput(output, matchedSeg, warnings) {
+  if (output.type === 'null') return '';
+  if (output.type === 'copy') return matchedSeg ? matchedSeg.text : '';
+  if (output.type === 'literal') return output.text;
+  if (output.type === 'class') {
+    const base = matchedSeg ? baseOf(matchedSeg.text) : null;
+    const sym = nearestInClass(output.letter, base);
+    if (!sym) { warnings.push(`Sound change: no known phoneme found for class "${output.letter}" as output`); return matchedSeg ? matchedSeg.text : ''; }
+    return sym;
+  }
+  return matchedSeg ? matchedSeg.text : '';
+}
+
+function targetMatches(seg, target) {
+  if (target.type === 'null') return false; // handled separately (insertion scans gaps, not segments)
+  if (target.type === 'literal') return !seg.boundary && seg.text === target.text;
+  if (target.type === 'class') return !seg.boundary && classesOf(baseOf(seg.text)).has(target.letter);
+  return false;
+}
+
+function envMatchesAt(segments, i, rule, left, right) {
+  const before = segments.slice(0, i).reverse();
+  const after = segments.slice(i + 1);
+  return matchSide(before, 0, left) && matchSide(after, 0, right);
+}
+
+// Applies one rule to `segments` in a single left-to-right pass, testing
+// environment against the ORIGINAL (pre-this-rule) array so multiple
+// matches within one rule don't interact with each other's replacements.
+function applyRule(segments, rule, warnings) {
+  const out = [];
+  if (rule.target.type === 'null') {
+    // Ø > X / L_R : insertion. Scan GAP positions (including before the
+    // first and after the last segment).
+    for (let i = 0; i <= segments.length; i++) {
+      out.push(...(i < segments.length ? [] : []));
+      const before = segments.slice(0, i).reverse();
+      const after = segments.slice(i);
+      const envOk = matchSide(before, 0, rule.left) && matchSide(after, 0, rule.right);
+      const excluded = rule.exceptionLeft && matchSide(before, 0, rule.exceptionLeft) && matchSide(after, 0, rule.exceptionRight);
+      if (envOk && !excluded) {
+        const text = resolveOutput(rule.output, null, warnings);
+        if (text) out.push({ text, boundary: null, stressed: false });
+      }
+      if (i < segments.length) out.push(segments[i]);
+    }
+    return out;
+  }
+
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    if (targetMatches(seg, rule.target)) {
+      const envOk = envMatchesAt(segments, i, rule, rule.left, rule.right);
+      const excluded = envOk && rule.exceptionLeft &&
+        envMatchesAt(segments, i, rule, rule.exceptionLeft, rule.exceptionRight);
+      if (envOk && !excluded) {
+        const text = resolveOutput(rule.output, seg, warnings);
+        if (text) out.push({ text, boundary: null, stressed: seg.stressed });
+        continue; // deleted if text is empty
+      }
+    }
+    out.push(seg);
+  }
+  return out;
+}
+
+// Auto-inserts # at the very start/end and at each word gap, so users don't
+// have to type boundaries by hand for ordinary word-boundary rules; $ and %
+// are left for the user to place explicitly (no auto-syllabification here).
+function withAutoWordBoundaries(text) {
+  return '# ' + text.trim().replace(/\s+/g, ' # ') + ' #';
+}
+
+function applySoundChanges(phonemicText, rulesText) {
+  const warnings = [];
+  let segments = segmentPhonemic(withAutoWordBoundaries(phonemicText));
+  const lines = rulesText.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//'));
+  for (const line of lines) {
+    const rule = parseRule(line, warnings);
+    if (!rule) continue;
+    segments = applyRule(segments, rule, warnings);
+  }
+  const resultText = segments.filter(s => !s.boundary)
+    .map(s => (s.stressed ? '\u02C8' : '') + s.text)
+    .join(' ');
+  return { result: resultText, warnings };
+}
+
+        // --- Prosody/dynamics markup (extIPA-style bracketed spans) --------
+        // [{𝆑 ... 𝆑}] forte (loud), [{𝆑𝆑 ... 𝆑𝆑}] fortissimo (very loud),
+        // [{𝆏 ... 𝆏}] piano (quiet), [{𝆏𝆏 ... 𝆏𝆏}] pianissimo (very quiet),
+        // [{allegro ... allegro}] fast, [{lento ... lento}] slow, and a
+        // standalone "(N second pause)" for an explicit silence. Loudness
+        // maps to the synth's `gain` param at roughly +/-6dB and +/-12dB per
+        // step (amp ratio = 10^(dB/20)); tempo maps to `localSpeed`, which
+        // MULTIPLIES whatever the Pace slider is already doing rather than
+        // overriding it, per how sequencer.js's localSpeed is designed.
+        const PROSODY_MARKERS = {
+            '𝆑𝆑': { gain: 4.0 },      // fortissimo, +12dB
+            '𝆑':  { gain: 2.0 },      // forte, +6dB
+            '𝆏𝆏': { gain: 0.25 },     // pianissimo, -12dB
+            '𝆏':  { gain: 0.5 },      // piano, -6dB
+            allegro: { localSpeed: 1.4 },
+            lento:   { localSpeed: 0.7 },
+        };
+        // Longest/most-specific keys first so "𝆑𝆑" is tried before "𝆑" --
+        // same longest-match-first principle used for IPA symbols above.
+        const PROSODY_MARKER_RE = new RegExp(
+            '\\[\\{(' + Object.keys(PROSODY_MARKERS).sort((a, b) => b.length - a.length).map(k =>
+                k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            ).join('|') + ')\\s+([\\s\\S]*?)\\s+\\1\\}\\]',
+            'g'
+        );
+        const PAUSE_RE = /\((\d+(?:\.\d+)?)\s*seconds?\s*pause\)/gi;
+
+        // Handles a plain span of text that may still contain standalone
+        // "(N second pause)" markers, converting everything else through
+        // the normal IPA pipeline. Shared by the top-level markup expander
+        // and recursively by the inside of a {marker ... marker} span.
+        function convertPlainSpan(text, unmatched) {
+            let out = '';
+            let last = 0;
+            for (const m of text.matchAll(PAUSE_RE)) {
+                const before = text.slice(last, m.index);
+                if (before.trim()) {
+                    const { phonemeString, unmatched: u } = ipaToPhonemeString(before);
+                    unmatched.push(...u);
+                    out += ' ' + phonemeString;
+                }
+                out += ` [pause=${Math.round(parseFloat(m[1]) * 1000)}]`;
+                last = m.index + m[0].length;
+            }
+            const rest = text.slice(last);
+            if (rest.trim()) {
+                const { phonemeString, unmatched: u } = ipaToPhonemeString(rest);
+                unmatched.push(...u);
+                out += ' ' + phonemeString;
+            }
+            return out.trim();
+        }
+
+        // Top-level entry point: expands all [{marker ... marker}] spans and
+        // standalone pause markers in raw IPA text into a phoneme string
+        // with the matching directives spliced in. NOTE: this operates on
+        // plain IPA text and is wired into the non-ToBI path only -- ToBI
+        // mode's chunk-based pipeline (for finding stressed syllables) and
+        // this string-based one aren't combined in this pass.
+        function expandProsodyMarkup(rawText, unmatched) {
+            let out = '';
+            let last = 0;
+            for (const m of rawText.matchAll(PROSODY_MARKER_RE)) {
+                out += ' ' + convertPlainSpan(rawText.slice(last, m.index), unmatched);
+                const [, marker, inner] = m;
+                const config = PROSODY_MARKERS[marker];
+                const innerConverted = convertPlainSpan(inner, unmatched);
+                if (config.gain !== undefined) {
+                    out += ` [gain*${config.gain}] ${innerConverted} [gain*${(1 / config.gain).toFixed(6)}]`;
+                } else if (config.localSpeed !== undefined) {
+                    out += ` [localSpeed=${config.localSpeed}] ${innerConverted} [localSpeed=1]`;
+                }
+                last = m.index + m[0].length;
+            }
+            out += ' ' + convertPlainSpan(rawText.slice(last), unmatched);
+            return out.trim();
+        }
+
+
         //   L+H*, H+!H*                  -- bitonal, target/peak is the
         //                                    STARRED (second) tone
         //   L*+H                         -- bitonal, star is FIRST; pitch
@@ -669,9 +1168,19 @@
         const tobiCheckbox = document.getElementById('tobiEnabled');
         const tobiRow = document.getElementById('tobiRow');
         const tobiInput = document.getElementById('tobi');
+        const phonemicCheckbox = document.getElementById('phonemicEnabled');
+        const phonemicRows = document.getElementById('phonemicRows');
+        const phonemicInput = document.getElementById('phonemic');
+        const soundChangesInput = document.getElementById('soundChanges');
 
         tobiCheckbox.addEventListener('change', () => {
             tobiRow.style.display = tobiCheckbox.checked ? '' : 'none';
+        });
+
+        phonemicCheckbox.addEventListener('change', () => {
+            const on = phonemicCheckbox.checked;
+            phonemicRows.style.display = on ? '' : 'none';
+            input.disabled = on;
         });
 
         speedSlider.addEventListener('input', () => {
@@ -687,7 +1196,25 @@
         }
 
         async function playIpa() {
-            const raw = input.value;
+            let raw = input.value;
+            let phonemicNote = '';
+
+            if (phonemicCheckbox.checked) {
+                const phonemicText = phonemicInput.value;
+                if (!phonemicText || !phonemicText.trim()) {
+                    setStatus('Type the phonemic form first.', true);
+                    return;
+                }
+                const { result, warnings } = applySoundChanges(phonemicText, soundChangesInput.value);
+                if (warnings.length) console.warn(warnings.join('; '));
+                if (!result.trim()) {
+                    setStatus('Sound changes produced an empty result.', true);
+                    return;
+                }
+                raw = result;
+                phonemicNote = `/${phonemicText.trim()}/ → `;
+            }
+
             if (!raw || !raw.trim()) {
                 setStatus('Type some IPA text first.', true);
                 return;
@@ -717,7 +1244,9 @@
                 phonemeString = phraseStrings.filter(Boolean).join(' . ');
                 unmatched = allUnmatched;
             } else {
-                ({ phonemeString, unmatched } = ipaToPhonemeString(raw));
+                const markupUnmatched = [];
+                phonemeString = expandProsodyMarkup(raw, markupUnmatched);
+                unmatched = markupUnmatched;
             }
 
             if (!phonemeString) {
@@ -725,10 +1254,11 @@
                 return;
             }
 
+            const allophonicLabel = `${phonemicNote}[${raw.trim()}]`;
             if (unmatched.length) {
-                setStatus(`Playing "${phonemeString}" (skipped unknown: ${unmatched.join(' ')})`);
+                setStatus(`Playing ${allophonicLabel} (skipped unknown: ${unmatched.join(' ')})`);
             } else {
-                setStatus(`Playing "${phonemeString}"`);
+                setStatus(`Playing ${allophonicLabel}`);
             }
 
             button.disabled = true;
