@@ -202,6 +202,115 @@
             gap: 0.5rem;
         }
 
+        /* ─── IPA keyboard ───────────────────────────────────────────────── */
+        .ipa-kb {
+            margin-top: 0.7rem;
+            border: 2px solid var(--light-green);
+            border-radius: 10px;
+            background: white;
+            padding: 0.8rem;
+        }
+        .ipa-kb-tabs {
+            display: flex;
+            gap: 0.4rem;
+            margin-bottom: 0.6rem;
+            flex-wrap: wrap;
+        }
+        .ipa-kb-tab {
+            padding: 0.3rem 0.8rem;
+            border: 2px solid var(--main-green);
+            border-radius: 999px;
+            background: transparent;
+            color: var(--main-green);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .ipa-kb-tab.active,
+        .ipa-kb-tab:hover {
+            background: var(--main-green);
+            color: white;
+        }
+        .ipa-kb-scroll {
+            overflow-x: auto;
+        }
+        .ipa-kb-table {
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            width: 100%;
+        }
+        .ipa-kb-table th,
+        .ipa-kb-table td {
+            border: 1px solid #dfe9df;
+            padding: 2px;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .ipa-kb-table thead th {
+            background: var(--bg);
+            color: var(--main-green);
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 4px 6px;
+        }
+        .ipa-kb-table tbody th {
+            text-align: left;
+            font-size: 0.72rem;
+            color: #444;
+            font-weight: 600;
+            padding: 2px 8px;
+            white-space: nowrap;
+            background: var(--bg);
+        }
+        .ipa-kb-table td.empty {
+            background: repeating-linear-gradient(45deg, #f2f2f2, #f2f2f2 4px, #e8e8e8 4px, #e8e8e8 8px);
+        }
+        .ipa-key {
+            font-size: 1.05rem;
+            min-width: 1.9em;
+            padding: 0.15rem 0.3rem;
+            margin: 1px;
+            border: 1px solid var(--light-green);
+            border-radius: 6px;
+            background: white;
+            color: var(--text);
+            cursor: pointer;
+            font-family: "Doulos SIL", "Charis SIL", "Gentium", "Segoe UI", Arial, sans-serif;
+        }
+        .ipa-key:hover {
+            background: var(--light-green);
+        }
+        .ipa-key:active {
+            transform: scale(0.92);
+        }
+        .ipa-key.unsupported {
+            opacity: 0.35;
+        }
+        .ipa-kb-marks {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.7rem;
+        }
+        .ipa-kb-mark-group {
+            min-width: 140px;
+        }
+        .ipa-kb-mark-group-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 0.2rem;
+        }
+        .ipa-kb-mark-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+        }
+        .ipa-kb-hint {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+
     </style>
 </head>
 <body>
@@ -212,7 +321,12 @@
         <div class="controls">
             <input id="ipa" value="he.'lo͡ʊ 'ðɛ.ɚ || ðɪs ɪs 'kʊɫ" placeholder="IPA text" />
         </div>
+        <div class="speed-control">
+            <label for="kbEnabled"><input id="kbEnabled" type="checkbox" /> IPA keyboard</label>
+        </div>
+        <div id="kbPanel" class="ipa-kb" style="display:none;"></div>
         <button id="playBtn" class="play-btn">Play</button>
+        <button id="downloadBtn" class="play-btn">⬇ Download WAV</button>
         <div class="speed-control">
             <label for="speed">Pace</label>
             <input id="speed" type="range" min="0.5" max="2.5" step="0.05" value="1" />
@@ -1391,6 +1505,7 @@ function applySoundChanges(phonemicText, rulesText) {
 
         const input = document.getElementById('ipa');
         const button = document.getElementById('playBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
         const status = document.getElementById('status');
         const speedSlider = document.getElementById('speed');
         const speedValue = document.getElementById('speedValue');
@@ -1408,6 +1523,313 @@ function applySoundChanges(phonemicText, rulesText) {
         const ipaAdvanced = document.getElementById('ipaAdvanced');
         const insertTagBtn = document.getElementById('insertTagBtn');
         const tagMenuContainer = document.getElementById('tagMenuContainer');
+        const kbCheckbox = document.getElementById('kbEnabled');
+        const kbPanel = document.getElementById('kbPanel');
+
+        // --- IPA keyboard -----------------------------------------------
+        // A simplified click-to-insert version of
+        // https://westonruter.github.io/ipa-chart/keyboard/ -- three tabs
+        // (Consonants, Vowels, Marks) instead of the original's full set of
+        // pulmonic/non-pulmonic/other/diacritic charts, and every button
+        // inserts straight into whichever IPA field is active (plain input,
+        // or the Advanced Prosody editor) instead of building a copy/paste
+        // buffer.
+
+        const KB_CONSONANT_COLUMNS = ['Bilabial', 'Labiodental', 'Dental', 'Alveolar', 'Postalveolar', 'Retroflex', 'Palatal', 'Velar', 'Uvular', 'Pharyngeal', 'Glottal'];
+        // Each row's cells line up with KB_CONSONANT_COLUMNS; a cell is
+        // [voiceless, voiced], either half left '' when that combination
+        // doesn't occur in the standard IPA pulmonic-consonant chart.
+        const KB_CONSONANTS = [
+            { label: 'Nasal',               cells: [['', 'm'], ['', 'ɱ'], ['', ''], ['', 'n'], ['', ''], ['', 'ɳ'], ['', 'ɲ'], ['', 'ŋ'], ['', 'ɴ'], ['', ''], ['', '']] },
+            { label: 'Plosive',             cells: [['p', 'b'], ['', ''], ['', ''], ['t', 'd'], ['', ''], ['ʈ', 'ɖ'], ['c', 'ɟ'], ['k', 'ɡ'], ['q', 'ɢ'], ['', ''], ['ʔ', '']] },
+            { label: 'Trill',                cells: [['', 'ʙ'], ['', ''], ['', ''], ['', 'r'], ['', ''], ['', ''], ['', ''], ['', ''], ['', 'ʀ'], ['', ''], ['', '']] },
+            { label: 'Tap / Flap',           cells: [['', ''], ['', 'ⱱ'], ['', ''], ['', 'ɾ'], ['', ''], ['', 'ɽ'], ['', ''], ['', ''], ['', ''], ['', ''], ['', '']] },
+            { label: 'Fricative',            cells: [['ɸ', 'β'], ['f', 'v'], ['θ', 'ð'], ['s', 'z'], ['ʃ', 'ʒ'], ['ʂ', 'ʐ'], ['ç', 'ʝ'], ['x', 'ɣ'], ['χ', 'ʁ'], ['ħ', 'ʕ'], ['h', 'ɦ']] },
+            { label: 'Lateral fricative',    cells: [['', ''], ['', ''], ['', ''], ['ɬ', 'ɮ'], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', ''], ['', '']] },
+            { label: 'Approximant',          cells: [['', ''], ['', 'ʋ'], ['', ''], ['', 'ɹ'], ['', ''], ['', 'ɻ'], ['', 'j'], ['', 'ɰ'], ['', ''], ['', ''], ['', '']] },
+            { label: 'Lateral approximant',  cells: [['', ''], ['', ''], ['', ''], ['', 'l'], ['', ''], ['', 'ɭ'], ['', 'ʎ'], ['', 'ʟ'], ['', ''], ['', ''], ['', '']] },
+        ];
+
+        const KB_VOWEL_COLUMNS = ['Front', 'Central', 'Back'];
+        // Each cell is [unrounded, rounded].
+        const KB_VOWELS = [
+            { label: 'Close',      cells: [['i', 'y'], ['ɨ', 'ʉ'], ['ɯ', 'u']] },
+            { label: 'Near-close', cells: [['ɪ', 'ʏ'], ['', ''], ['', 'ʊ']] },
+            { label: 'Close-mid',  cells: [['e', 'ø'], ['ɘ', 'ɵ'], ['ɤ', 'o']] },
+            { label: 'Mid',        cells: [['', ''], ['ə', ''], ['', '']] },
+            { label: 'Open-mid',   cells: [['ɛ', 'œ'], ['ɜ', 'ɞ'], ['ʌ', 'ɔ']] },
+            { label: 'Near-open',  cells: [['æ', ''], ['ɐ', ''], ['', '']] },
+            { label: 'Open',       cells: [['a', 'ɶ'], ['', ''], ['ɑ', 'ɒ']] },
+        ];
+
+        // "insert" is what actually gets typed; "show" is how the button is
+        // labeled (a bare combining mark renders invisibly on its own, so
+        // marks that only make sense after a base letter show a sample
+        // letter + mark instead).
+        const KB_MARK_GROUPS = [
+            { label: 'Stress', marks: [
+                { show: 'ˈ', insert: '\u02C8', title: 'primary stress' },
+                { show: 'ˌ', insert: '\u02CC', title: 'secondary stress' },
+            ] },
+            { label: 'Length', marks: [
+                { show: 'ː', insert: '\u02D0', title: 'long' },
+                { show: 'ˑ', insert: '\u02D1', title: 'half-long' },
+                { show: 'ă', insert: '\u0306', title: 'extra-short' },
+            ] },
+            { label: 'Linking', marks: [
+                { show: 't͡ʃ', insert: '\u0361', title: 'tie bar (affricates, diphthongs) — place between two symbols' },
+            ] },
+            { label: 'Voice quality', marks: [
+                { show: 'ã', insert: '\u0303', title: 'nasalized' },
+                { show: 'a̤', insert: '\u0324', title: 'breathy voice' },
+            ] },
+            { label: 'Boundaries', marks: [
+                { show: '|', insert: '|', title: 'minor (foot) boundary' },
+                { show: '‖', insert: '\u2016', title: 'major (intonation) boundary' },
+            ] },
+            { label: 'Pitch', marks: [
+                { show: '↗', insert: '\u2197', title: 'forces a rising contour' },
+                { show: '↓', insert: '\u2193', title: 'downstep' },
+            ] },
+            { label: 'Tone letters', marks: [
+                { show: '˥', insert: '\u02E5', title: 'extra-high tone' },
+                { show: '˦', insert: '\u02E6', title: 'high tone' },
+                { show: '˧', insert: '\u02E7', title: 'mid tone' },
+                { show: '˨', insert: '\u02E8', title: 'low tone' },
+                { show: '˩', insert: '\u02E9', title: 'extra-low tone' },
+            ] },
+            { label: 'Tone diacritics', marks: [
+                { show: 'á', insert: '\u0301', title: 'high tone' },
+                { show: 'à', insert: '\u0300', title: 'low tone' },
+                { show: 'ā', insert: '\u0304', title: 'mid tone' },
+                { show: 'â', insert: '\u0302', title: 'falling contour' },
+                { show: 'ǎ', insert: '\u030C', title: 'rising contour' },
+            ] },
+        ];
+
+        // A symbol is "supported" if this app's engine actually knows what
+        // to do with it -- either it's in the phoneme bank (ipaMap), or
+        // it's one of the special prosody marks handled elsewhere in this
+        // file. Unsupported buttons stay clickable (typing them is still
+        // valid IPA) but are shown faded, matching how playIpa() already
+        // reports unrecognized symbols as "skipped" rather than erroring.
+        function isSupportedSymbol(symbol) {
+            if (!symbol) return false;
+            if (ipaMap.has(symbol.normalize('NFD'))) return true;
+            if (Object.prototype.hasOwnProperty.call(WRAP_DIACRITICS, symbol)) return true;
+            if (Object.prototype.hasOwnProperty.call(BOUNDARY_TOKENS, symbol)) return true;
+            if (Object.prototype.hasOwnProperty.call(TONE_WRAP_DIACRITICS, symbol)) return true;
+            if (Object.prototype.hasOwnProperty.call(CONTOUR_TONE_DIACRITICS, symbol)) return true;
+            if (Object.prototype.hasOwnProperty.call(TONE_LEVELS, symbol)) return true;
+            if (Object.prototype.hasOwnProperty.call(STRESS_WRAPS, symbol)) return true;
+            if (TIE_BAR_CHARS.has(symbol)) return true;
+            return false;
+        }
+
+        function insertIntoPlainInput(el, symbol) {
+            if (el.disabled) {
+                setStatus('Turn off phonemic mode to use the IPA keyboard here.', true);
+                return;
+            }
+            const start = el.selectionStart != null ? el.selectionStart : el.value.length;
+            const end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+            el.value = el.value.slice(0, start) + symbol + el.value.slice(end);
+            const pos = start + symbol.length;
+            el.focus();
+            el.setSelectionRange(pos, pos);
+        }
+
+        function insertIntoAdvancedField(symbol) {
+            ipaAdvanced.focus();
+            const sel = window.getSelection();
+            let range;
+            if (sel && sel.rangeCount > 0 && ipaAdvanced.contains(sel.anchorNode)) {
+                range = sel.getRangeAt(0);
+            } else {
+                range = document.createRange();
+                range.selectNodeContents(ipaAdvanced);
+                range.collapse(false);
+            }
+            range.deleteContents();
+            const textNode = document.createTextNode(symbol);
+            range.insertNode(textNode);
+            range.setStartAfter(textNode);
+            range.setEndAfter(textNode);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
+
+        // Routes a click to whichever field is actually accepting IPA text
+        // right now: the Advanced Prosody editor when that mode is on,
+        // otherwise the plain #ipa input.
+        function insertIpaSymbol(symbol) {
+            if (advancedCheckbox.checked) {
+                insertIntoAdvancedField(symbol);
+            } else {
+                insertIntoPlainInput(input, symbol);
+            }
+        }
+
+        function makeKeyButton(symbol, displayText, titleText) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ipa-key';
+            btn.textContent = displayText != null ? displayText : symbol;
+            const supported = isSupportedSymbol(symbol);
+            if (!supported) btn.classList.add('unsupported');
+            btn.title = (titleText ? titleText + ' — ' : '') + symbol + (supported ? '' : ' (not recognized by this synthesizer)');
+            btn.addEventListener('click', () => insertIpaSymbol(symbol));
+            return btn;
+        }
+
+        function buildConsonantTable() {
+            const wrap = document.createElement('div');
+            wrap.className = 'ipa-kb-scroll';
+            const table = document.createElement('table');
+            table.className = 'ipa-kb-table';
+            const thead = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            headRow.appendChild(document.createElement('th'));
+            for (const col of KB_CONSONANT_COLUMNS) {
+                const th = document.createElement('th');
+                th.textContent = col;
+                headRow.appendChild(th);
+            }
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            for (const row of KB_CONSONANTS) {
+                const tr = document.createElement('tr');
+                const rowHead = document.createElement('th');
+                rowHead.scope = 'row';
+                rowHead.textContent = row.label;
+                tr.appendChild(rowHead);
+                for (const [voiceless, voiced] of row.cells) {
+                    const td = document.createElement('td');
+                    if (voiceless) td.appendChild(makeKeyButton(voiceless, voiceless, `${row.label}, voiceless`));
+                    if (voiced) td.appendChild(makeKeyButton(voiced, voiced, `${row.label}, voiced`));
+                    if (!voiceless && !voiced) td.classList.add('empty');
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            return wrap;
+        }
+
+        function buildVowelTable() {
+            const wrap = document.createElement('div');
+            wrap.className = 'ipa-kb-scroll';
+            const table = document.createElement('table');
+            table.className = 'ipa-kb-table';
+            const thead = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            headRow.appendChild(document.createElement('th'));
+            for (const col of KB_VOWEL_COLUMNS) {
+                const th = document.createElement('th');
+                th.textContent = col;
+                headRow.appendChild(th);
+            }
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            for (const row of KB_VOWELS) {
+                const tr = document.createElement('tr');
+                const rowHead = document.createElement('th');
+                rowHead.scope = 'row';
+                rowHead.textContent = row.label;
+                tr.appendChild(rowHead);
+                for (const [unrounded, rounded] of row.cells) {
+                    const td = document.createElement('td');
+                    if (unrounded) td.appendChild(makeKeyButton(unrounded, unrounded, `${row.label}, unrounded`));
+                    if (rounded) td.appendChild(makeKeyButton(rounded, rounded, `${row.label}, rounded`));
+                    if (!unrounded && !rounded) td.classList.add('empty');
+                    tr.appendChild(td);
+                }
+                tbody.appendChild(tr);
+            }
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+            return wrap;
+        }
+
+        function buildMarksPanel() {
+            const container = document.createElement('div');
+            container.className = 'ipa-kb-marks';
+            for (const group of KB_MARK_GROUPS) {
+                const box = document.createElement('div');
+                box.className = 'ipa-kb-mark-group';
+                const label = document.createElement('div');
+                label.className = 'ipa-kb-mark-group-label';
+                label.textContent = group.label;
+                box.appendChild(label);
+                const row = document.createElement('div');
+                row.className = 'ipa-kb-mark-row';
+                for (const mark of group.marks) {
+                    row.appendChild(makeKeyButton(mark.insert, mark.show, mark.title));
+                }
+                box.appendChild(row);
+                container.appendChild(box);
+            }
+            const hint = document.createElement('div');
+            hint.className = 'ipa-kb-hint';
+            hint.textContent = 'Marks apply to whatever comes right before them, so insert the letter first, then the mark.';
+            container.appendChild(hint);
+            return container;
+        }
+
+        const KB_TABS = [
+            { id: 'consonants', label: 'Consonants', build: buildConsonantTable },
+            { id: 'vowels', label: 'Vowels', build: buildVowelTable },
+            { id: 'marks', label: 'Marks', build: buildMarksPanel },
+        ];
+
+        function renderKeyboard() {
+            kbPanel.innerHTML = '';
+            const tabRow = document.createElement('div');
+            tabRow.className = 'ipa-kb-tabs';
+            const body = document.createElement('div');
+            body.className = 'ipa-kb-body';
+
+            function showTab(id) {
+                body.innerHTML = '';
+                body.appendChild(KB_TABS.find(t => t.id === id).build());
+                for (const btn of tabRow.children) {
+                    btn.classList.toggle('active', btn.dataset.tab === id);
+                }
+            }
+            for (const tab of KB_TABS) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'ipa-kb-tab';
+                btn.dataset.tab = tab.id;
+                btn.textContent = tab.label;
+                btn.addEventListener('click', () => showTab(tab.id));
+                tabRow.appendChild(btn);
+            }
+            kbPanel.appendChild(tabRow);
+            kbPanel.appendChild(body);
+            showTab(KB_TABS[0].id);
+        }
+
+        // Buttons are activated on click, but the mousedown that precedes it
+        // would otherwise steal focus (and the current cursor position) away
+        // from the #ipa input or the Advanced Prosody editor first -- so the
+        // insert would land in the wrong place. Suppressing that default
+        // keeps focus/selection right where the person left it.
+        kbPanel.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.ipa-key, .ipa-kb-tab')) e.preventDefault();
+        });
+
+        kbCheckbox.addEventListener('change', () => {
+            const on = kbCheckbox.checked;
+            kbPanel.style.display = on ? '' : 'none';
+            if (on && !kbPanel.dataset.built) {
+                renderKeyboard();
+                kbPanel.dataset.built = '1';
+            }
+        });
 
         // ToBI, Phonemic mode, and Advanced prosody are mutually exclusive
         // (per spec): turning one on disables the other two's checkboxes
@@ -1794,7 +2216,11 @@ function applySoundChanges(phonemicText, rulesText) {
             status.classList.toggle('error', isError);
         }
 
-        async function playIpa() {
+        // Shared by Play and Download WAV: turns whatever's in the active
+        // input mode (plain / phonemic / ToBI / advanced) into a phoneme
+        // string ready for the synth. Returns null (after setting an error
+        // status) if there's nothing playable yet.
+        function compilePlayback() {
             let raw = input.value;
             let phonemicNote = '';
             let phonemeString, unmatched;
@@ -1803,7 +2229,7 @@ function applySoundChanges(phonemicText, rulesText) {
                 ({ phonemeString, unmatched } = compileAdvancedProsody());
                 if (!phonemeString) {
                     setStatus('Type some IPA text first.', true);
-                    return;
+                    return null;
                 }
                 raw = phonemeString; // for the status-line [] label below
             } else {
@@ -1812,13 +2238,13 @@ function applySoundChanges(phonemicText, rulesText) {
                 const phonemicText = phonemicInput.value;
                 if (!phonemicText || !phonemicText.trim()) {
                     setStatus('Type the phonemic form first.', true);
-                    return;
+                    return null;
                 }
                 const { result, warnings } = applySoundChanges(phonemicText, soundChangesInput.value);
                 if (warnings.length) console.warn(warnings.join('; '));
                 if (!result.trim()) {
                     setStatus('Sound changes produced an empty result.', true);
-                    return;
+                    return null;
                 }
                 raw = result;
                 phonemicNote = `/${phonemicText.trim()}/ → `;
@@ -1826,7 +2252,7 @@ function applySoundChanges(phonemicText, rulesText) {
 
             if (!raw || !raw.trim()) {
                 setStatus('Type some IPA text first.', true);
-                return;
+                return null;
             }
 
             if (tobiCheckbox.checked) {
@@ -1861,10 +2287,18 @@ function applySoundChanges(phonemicText, rulesText) {
 
             if (!phonemeString) {
                 setStatus('No recognizable IPA symbols found.', true);
-                return;
+                return null;
             }
 
             const allophonicLabel = `${phonemicNote}[${raw.trim()}]`;
+            return { phonemeString, unmatched, raw, allophonicLabel };
+        }
+
+        async function playIpa() {
+            const compiled = compilePlayback();
+            if (!compiled) return;
+            const { phonemeString, unmatched, allophonicLabel } = compiled;
+
             if (unmatched.length) {
                 setStatus(`Playing ${allophonicLabel} (skipped unknown: ${unmatched.join(' ')})`);
             } else {
@@ -1897,7 +2331,63 @@ function applySoundChanges(phonemicText, rulesText) {
             }
         }
 
+        // Turns an utterance's raw IPA text into a safe .wav filename.
+        // Modern filesystems handle Unicode fine, so this keeps the actual
+        // IPA characters (readable, e.g. "he.ˈloʊ-ˈðɛɚ.wav") rather than
+        // collapsing them to ASCII -- it only strips characters that are
+        // genuinely illegal in filenames (Windows' reserved set covers
+        // macOS/Linux's smaller one too) and whitespace.
+        function filenameFor(raw) {
+            const cleaned = (raw || '')
+                .replace(/[\\/:*?"<>|]/g, '')
+                .replace(/\s+/g, '-')
+                .replace(/^[-.]+|[-.]+$/g, '')
+                .slice(0, 60);
+            return `${cleaned || 'utterance'}.wav`;
+        }
+
+        async function downloadWav() {
+            const compiled = compilePlayback();
+            if (!compiled) return;
+            const { phonemeString, unmatched, raw, allophonicLabel } = compiled;
+
+            if (unmatched.length) {
+                setStatus(`Rendering ${allophonicLabel} (skipped unknown: ${unmatched.join(' ')})`);
+            } else {
+                setStatus(`Rendering ${allophonicLabel}`);
+            }
+
+            downloadBtn.disabled = true;
+            downloadBtn.classList.add('playing');
+
+            try {
+                if (typeof renderWav !== 'function') {
+                    throw new Error('renderWav() is not defined yet — wire it up in src/main.js.');
+                }
+                const { bytes } = await renderWav(phonemeString, {
+                    speed: Number(speedSlider.value),
+                    glideSpeed: Number(glideSpeedSlider.value),
+                });
+                const blob = new Blob([bytes], { type: 'audio/wav' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filenameFor(raw);
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+                setStatus(`Downloaded ${allophonicLabel}`);
+            } catch (err) {
+                setStatus(err.message || 'Could not render WAV.', true);
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.classList.remove('playing');
+            }
+        }
+
         button.addEventListener('click', playIpa);
+        downloadBtn.addEventListener('click', downloadWav);
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') playIpa();
         });
