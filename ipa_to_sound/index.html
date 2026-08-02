@@ -126,6 +126,82 @@
             color: var(--main-green);
         }
 
+        .ipa-advanced-input {
+            width: 100%;
+            min-height: 2.6rem;
+            padding: 0.9rem;
+            border: 2px solid var(--light-green);
+            border-radius: 10px;
+            font-size: 1rem;
+            box-sizing: border-box;
+            white-space: pre-wrap;
+            outline: none;
+            background: white;
+        }
+
+        .tag-marker {
+            display: inline-block;
+            width: 0;
+            border-left: 3px solid currentColor;
+            height: 1.15em;
+            vertical-align: middle;
+            margin: 0 2px;
+            cursor: pointer;
+        }
+        .tag-marker:hover { filter: brightness(0.7); }
+
+        .tag-menus-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 0.7rem;
+        }
+        .tag-menu-box {
+            width: 200px;
+            padding: 0.6rem;
+            border: 2px solid #888;
+            border-radius: 8px;
+            background: white;
+            font-size: 0.85rem;
+        }
+        .tag-menu-box label {
+            display: block;
+            font-size: 0.75rem;
+            margin-top: 0.4rem;
+            color: #444;
+        }
+        .tag-menu-box select,
+        .tag-menu-box input[type="text"],
+        .tag-menu-box input[type="number"] {
+            width: 100%;
+            padding: 0.3rem;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            margin-top: 0.15rem;
+            font-size: 0.85rem;
+        }
+        .tag-menu-box input[type="color"] {
+            margin-top: 0.15rem;
+            width: 100%;
+            height: 1.6rem;
+        }
+        .tag-menu-box button {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.6rem;
+        }
+        .tag-hint {
+            font-size: 0.7rem;
+            color: #666;
+            margin-top: 0.3rem;
+        }
+        .minimize-bar {
+            margin-top: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
     </style>
 </head>
 <body>
@@ -168,6 +244,19 @@
                 <textarea id="soundChanges" rows="4" placeholder="T > D / V_V&#10;h > Ø / V_V"
                           style="width:100%; padding:0.9rem; border:2px solid var(--light-green); border-radius:10px; font-size:1rem; box-sizing:border-box;"></textarea>
             </div>
+        </div>
+        <div class="speed-control">
+            <label for="advancedEnabled"><input id="advancedEnabled" type="checkbox" /> Advanced prosody</label>
+        </div>
+        <div id="advancedRows" style="display:none;">
+            <div class="controls">
+                <label style="font-size:0.85rem; display:block; margin-bottom:0.2rem;">
+                    IPA text (tags shown as colored vertical lines, not characters)
+                </label>
+                <div id="ipaAdvanced" class="ipa-advanced-input" contenteditable="true"></div>
+            </div>
+            <button id="insertTagBtn" class="play-btn" type="button">+ Insert tag</button>
+            <div id="tagMenuContainer"></div>
         </div>
         <p id="status" class="status"></p>
     </main>
@@ -251,6 +340,15 @@
             '\u2197': '[contour=rise]', // ↗ forces a rising contour for the rest of the clause
             '\u2193': 'b-20', // ↓ downstep: permanent register step-down from here on
         };
+        // Which BOUNDARY_TOKENS are prosody marks (vs basic structural
+        // boundaries like | and ‖, which keep working even when advanced
+        // prosody mode suppresses the others).
+        const PROSODY_ONLY_BOUNDARY_CHARS = new Set(['\u2197', '\u2193']);
+        // Set true while Advanced Prosody mode compiles its input: the
+        // extIPA prosody marks (tone diacritics, Chao tone letters, ↗/↓)
+        // are ignored in favor of the tag system instead of double-applying
+        // both systems at once.
+        let SUPPRESS_TONE_PROSODY = false;
 
         // Combining tone diacritics that wrap the LAST emitted code, same
         // mechanism as WRAP_DIACRITICS above (length marks etc.) — level
@@ -361,6 +459,7 @@
                 // level tone shifts just that one syllable's register and
                 // never leaks into what follows.
                 if (ch in TONE_WRAP_DIACRITICS) {
+                    if (SUPPRESS_TONE_PROSODY) { i++; continue; } // ignored, per advanced prosody mode
                     const wrap = TONE_WRAP_DIACRITICS[ch];
                     if (wrap) {
                         if (!wrapLastCode(codes, wrap.prefix, wrap.closer)) unmatched.push(ch);
@@ -381,6 +480,7 @@
                 // safely, so this falls back to a symmetric register-shift
                 // wrap instead — directionally right, just not a true glide.
                 if (ch in CONTOUR_TONE_DIACRITICS) {
+                    if (SUPPRESS_TONE_PROSODY) { i++; continue; } // ignored, per advanced prosody mode
                     const delta = CONTOUR_TONE_DIACRITICS[ch];
                     if (codes.length === 0) {
                         unmatched.push(ch);
@@ -394,6 +494,7 @@
                 }
 
                 if (ch in BOUNDARY_TOKENS) {
+                    if (SUPPRESS_TONE_PROSODY && PROSODY_ONLY_BOUNDARY_CHARS.has(ch)) { i++; continue; }
                     codes.push(BOUNDARY_TOKENS[ch]);
                     i++;
                     continue;
@@ -435,6 +536,7 @@
                 // it. With no base symbol to attach to, the run is invalid
                 // and reported as unmatched rather than silently dropped.
                 if (ch in TONE_LEVELS) {
+                    if (SUPPRESS_TONE_PROSODY) { i++; continue; } // ignored, per advanced prosody mode
                     let j = i;
                     const levels = [];
                     while (j < text.length && text[j] in TONE_LEVELS) {
@@ -1301,16 +1403,384 @@ function applySoundChanges(phonemicText, rulesText) {
         const phonemicRows = document.getElementById('phonemicRows');
         const phonemicInput = document.getElementById('phonemic');
         const soundChangesInput = document.getElementById('soundChanges');
+        const advancedCheckbox = document.getElementById('advancedEnabled');
+        const advancedRows = document.getElementById('advancedRows');
+        const ipaAdvanced = document.getElementById('ipaAdvanced');
+        const insertTagBtn = document.getElementById('insertTagBtn');
+        const tagMenuContainer = document.getElementById('tagMenuContainer');
+
+        // ToBI, Phonemic mode, and Advanced prosody are mutually exclusive
+        // (per spec): turning one on disables the other two's checkboxes
+        // until it's turned off again.
+        function updateModeExclusivity() {
+            const anyOn = tobiCheckbox.checked || phonemicCheckbox.checked || advancedCheckbox.checked;
+            tobiCheckbox.disabled = anyOn && !tobiCheckbox.checked;
+            phonemicCheckbox.disabled = anyOn && !phonemicCheckbox.checked;
+            advancedCheckbox.disabled = anyOn && !advancedCheckbox.checked;
+        }
 
         tobiCheckbox.addEventListener('change', () => {
             tobiRow.style.display = tobiCheckbox.checked ? '' : 'none';
+            updateModeExclusivity();
         });
 
         phonemicCheckbox.addEventListener('change', () => {
             const on = phonemicCheckbox.checked;
             phonemicRows.style.display = on ? '' : 'none';
             input.disabled = on;
+            updateModeExclusivity();
         });
+
+        advancedCheckbox.addEventListener('change', () => {
+            const on = advancedCheckbox.checked;
+            advancedRows.style.display = on ? '' : 'none';
+            input.style.display = on ? 'none' : '';
+            input.disabled = on;
+            updateModeExclusivity();
+        });
+
+        // --- Advanced prosody tag system ------------------------------------
+        const advancedTags = new Map(); // 2-digit hex code -> tag object
+        const TAG_COLORS = ['#e53935', '#8e24aa', '#3949ab', '#00897b', '#43a047', '#f9a825', '#fb8c00', '#6d4c41'];
+
+        function randomTagCode() {
+            let code, attempts = 0;
+            do {
+                code = Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase();
+                attempts++;
+            } while (advancedTags.has(code) && attempts < 1000);
+            return code;
+        }
+
+        function defaultTagAttrs(type) {
+            if (type === 'start') return { targetCode: '', mode: 'continuous' };
+            if (type === 'target') return { mode: 'frequency', value: 220 };
+            if (type === 'tone') return { mode: 'frequency', value: 220 };
+            if (type === 'speed') return { mode: 'length', value: 110 };
+            return {};
+        }
+
+        function createTag(type) {
+            const code = randomTagCode();
+            const tag = { code, type: type || 'tone', color: TAG_COLORS[advancedTags.size % TAG_COLORS.length], ...defaultTagAttrs(type || 'tone') };
+            advancedTags.set(code, tag);
+            return tag;
+        }
+
+        function insertTagMarkerAtCursor(tag) {
+            const marker = document.createElement('span');
+            marker.className = 'tag-marker';
+            marker.contentEditable = 'false';
+            marker.dataset.code = tag.code;
+            marker.style.color = tag.color;
+            marker.textContent = '\u200B';
+            marker.title = `${tag.type} (${tag.code})`;
+            marker.addEventListener('click', () => {
+                renderTagMenu();
+                const box = tagMenuContainer.querySelector(`.tag-menu-box[data-code="${tag.code}"]`);
+                if (box) { box.style.outline = '2px solid ' + tag.color; setTimeout(() => { box.style.outline = ''; }, 800); }
+            });
+
+            const sel = window.getSelection();
+            let range;
+            if (sel && sel.rangeCount > 0 && ipaAdvanced.contains(sel.anchorNode)) {
+                range = sel.getRangeAt(0);
+            } else {
+                range = document.createRange();
+                range.selectNodeContents(ipaAdvanced);
+                range.collapse(false);
+            }
+            range.deleteContents();
+            range.insertNode(marker);
+            range.setStartAfter(marker);
+            range.setEndAfter(marker);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            ipaAdvanced.focus();
+        }
+
+        function refreshTagMarkerColors() {
+            for (const marker of ipaAdvanced.querySelectorAll('.tag-marker')) {
+                const tag = advancedTags.get(marker.dataset.code);
+                if (tag) { marker.style.color = tag.color; marker.title = `${tag.type} (${tag.code})`; }
+            }
+        }
+
+        function buildTagMenuBox(tag) {
+            const box = document.createElement('div');
+            box.className = 'tag-menu-box';
+            box.dataset.code = tag.code;
+            box.style.borderColor = tag.color;
+
+            const titleRow = document.createElement('div');
+            titleRow.style.display = 'flex';
+            titleRow.style.justifyContent = 'space-between';
+            titleRow.style.alignItems = 'center';
+            const title = document.createElement('strong');
+            title.textContent = `Tag ${tag.code}`;
+            titleRow.appendChild(title);
+            const minBtn = document.createElement('button');
+            minBtn.type = 'button';
+            minBtn.className = 'play-btn';
+            minBtn.style.padding = '0.1rem 0.4rem';
+            minBtn.textContent = tag.minimized ? '▾' : '▴';
+            minBtn.title = tag.minimized ? 'Expand' : 'Minimize';
+            minBtn.addEventListener('click', () => { tag.minimized = !tag.minimized; renderTagMenu(); });
+            titleRow.appendChild(minBtn);
+            box.appendChild(titleRow);
+
+            if (tag.minimized) return box;
+
+            const hideLabel = document.createElement('label');
+            hideLabel.style.display = 'flex';
+            hideLabel.style.alignItems = 'center';
+            hideLabel.style.gap = '0.3rem';
+            const hideCheck = document.createElement('input');
+            hideCheck.type = 'checkbox';
+            hideCheck.checked = !!tag.hiddenOnInput;
+            hideCheck.addEventListener('change', () => {
+                tag.hiddenOnInput = hideCheck.checked;
+                const marker = ipaAdvanced.querySelector(`.tag-marker[data-code="${tag.code}"]`);
+                if (marker) marker.style.display = tag.hiddenOnInput ? 'none' : 'inline-block';
+            });
+            hideLabel.appendChild(hideCheck);
+            hideLabel.appendChild(document.createTextNode('Hide on input'));
+            box.appendChild(hideLabel);
+
+            const typeLabel = document.createElement('label');
+            typeLabel.textContent = 'Type';
+            const typeSel = document.createElement('select');
+            const TYPE_NAMES = { start: 'Start changing', target: 'Target change', tone: 'Set tone', speed: 'Set speed' };
+            for (const t of ['start', 'target', 'tone', 'speed']) {
+                const opt = document.createElement('option');
+                opt.value = t; opt.textContent = TYPE_NAMES[t];
+                if (t === tag.type) opt.selected = true;
+                typeSel.appendChild(opt);
+            }
+            typeSel.addEventListener('change', () => {
+                tag.type = typeSel.value;
+                Object.assign(tag, defaultTagAttrs(tag.type));
+                renderTagMenu();
+            });
+            typeLabel.appendChild(typeSel);
+            box.appendChild(typeLabel);
+
+            const colorLabel = document.createElement('label');
+            colorLabel.textContent = 'Color';
+            const colorInput = document.createElement('input');
+            colorInput.type = 'color';
+            colorInput.value = tag.color;
+            colorInput.addEventListener('input', () => {
+                tag.color = colorInput.value;
+                box.style.borderColor = tag.color;
+                refreshTagMarkerColors();
+            });
+            colorLabel.appendChild(colorInput);
+            box.appendChild(colorLabel);
+
+            if (tag.type === 'start') {
+                const codeLabel = document.createElement('label');
+                codeLabel.textContent = 'Target tag code';
+                const codeInput = document.createElement('input');
+                codeInput.type = 'text';
+                codeInput.maxLength = 2;
+                codeInput.value = tag.targetCode || '';
+                codeInput.placeholder = 'e.g. A3';
+                codeInput.addEventListener('input', () => {
+                    tag.targetCode = codeInput.value.toUpperCase();
+                    hint.textContent = hintText();
+                });
+                codeLabel.appendChild(codeInput);
+                box.appendChild(codeLabel);
+
+                const modeLabel = document.createElement('label');
+                modeLabel.textContent = 'Mode';
+                const modeSel = document.createElement('select');
+                for (const m of ['continuous', 'step']) {
+                    const opt = document.createElement('option'); opt.value = m; opt.textContent = m;
+                    if (m === tag.mode) opt.selected = true;
+                    modeSel.appendChild(opt);
+                }
+                modeSel.addEventListener('change', () => { tag.mode = modeSel.value; });
+                modeLabel.appendChild(modeSel);
+                box.appendChild(modeLabel);
+
+                function hintText() {
+                    if (!tag.targetCode) return 'Enter the code of a "Target change" tag';
+                    const target = advancedTags.get(tag.targetCode);
+                    if (!target) return `\u26A0 no tag with code ${tag.targetCode} found`;
+                    if (target.type !== 'target') return `\u26A0 tag ${tag.targetCode} exists but isn't a "Target change" tag`;
+                    return `\u2713 linked to target ${tag.targetCode}`;
+                }
+                const hint = document.createElement('div');
+                hint.className = 'tag-hint';
+                hint.textContent = hintText();
+                box.appendChild(hint);
+            } else if (tag.type === 'target' || tag.type === 'tone') {
+                const modeLabel = document.createElement('label');
+                modeLabel.textContent = 'Mode';
+                const modeSel = document.createElement('select');
+                for (const m of ['semitone', 'frequency', 'note']) {
+                    const opt = document.createElement('option'); opt.value = m; opt.textContent = m;
+                    if (m === tag.mode) opt.selected = true;
+                    modeSel.appendChild(opt);
+                }
+                modeSel.addEventListener('change', () => {
+                    tag.mode = modeSel.value;
+                    tag.value = tag.mode === 'note' ? 'A4' : 220;
+                    renderTagMenu();
+                });
+                modeLabel.appendChild(modeSel);
+                box.appendChild(modeLabel);
+
+                const valueLabel = document.createElement('label');
+                valueLabel.textContent = tag.mode === 'semitone' ? 'Semitones (from the pitch at the start point)'
+                    : tag.mode === 'frequency' ? 'Frequency (Hz)' : 'Note (e.g. A4, C#3)';
+                const valueInput = document.createElement('input');
+                if (tag.mode === 'note') {
+                    valueInput.type = 'text';
+                    valueInput.value = typeof tag.value === 'string' ? tag.value : 'A4';
+                    valueInput.addEventListener('input', () => { tag.value = valueInput.value.trim(); });
+                } else {
+                    valueInput.type = 'number';
+                    valueInput.value = typeof tag.value === 'number' ? tag.value : 0;
+                    valueInput.addEventListener('input', () => { tag.value = parseFloat(valueInput.value); });
+                }
+                valueLabel.appendChild(valueInput);
+                box.appendChild(valueLabel);
+            } else if (tag.type === 'speed') {
+                const modeLabel = document.createElement('label');
+                modeLabel.textContent = 'Mode';
+                const modeSel = document.createElement('select');
+                const SPEED_MODE_NAMES = { length: 'Length (ms per phoneme)', pps: 'Phonemes per second', wpm: 'Words per minute (5-phoneme word)' };
+                for (const m of ['length', 'pps', 'wpm']) {
+                    const opt = document.createElement('option'); opt.value = m; opt.textContent = SPEED_MODE_NAMES[m];
+                    if (m === tag.mode) opt.selected = true;
+                    modeSel.appendChild(opt);
+                }
+                modeSel.addEventListener('change', () => { tag.mode = modeSel.value; renderTagMenu(); });
+                modeLabel.appendChild(modeSel);
+                box.appendChild(modeLabel);
+
+                const valueLabel = document.createElement('label');
+                valueLabel.textContent = tag.mode === 'length' ? 'Length (ms)' : tag.mode === 'pps' ? 'Phonemes/sec' : 'Words/min';
+                const valueInput = document.createElement('input');
+                valueInput.type = 'number';
+                valueInput.value = typeof tag.value === 'number' ? tag.value : 110;
+                valueInput.addEventListener('input', () => { tag.value = parseFloat(valueInput.value); });
+                valueLabel.appendChild(valueInput);
+                box.appendChild(valueLabel);
+            }
+
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'Delete tag';
+            delBtn.type = 'button';
+            delBtn.className = 'play-btn';
+            delBtn.style.marginTop = '0.6rem';
+            delBtn.addEventListener('click', () => {
+                const marker = ipaAdvanced.querySelector(`.tag-marker[data-code="${tag.code}"]`);
+                if (marker) marker.remove();
+                advancedTags.delete(tag.code);
+                renderTagMenu();
+            });
+            box.appendChild(delBtn);
+
+            return box;
+        }
+
+        // Renders every tag's menu at once, side by side. Each box has its
+        // own minimize toggle (▴/▾) rather than one global switch.
+        function renderTagMenu() {
+            tagMenuContainer.innerHTML = '';
+            if (advancedTags.size === 0) return;
+
+            const row = document.createElement('div');
+            row.className = 'tag-menus-row';
+            for (const tag of advancedTags.values()) {
+                row.appendChild(buildTagMenuBox(tag));
+            }
+            tagMenuContainer.appendChild(row);
+        }
+
+        insertTagBtn.addEventListener('click', () => {
+            const tag = createTag('tone');
+            insertTagMarkerAtCursor(tag);
+            renderTagMenu();
+        });
+
+        // Converts one tag into the DSL directive token(s) it resolves to.
+        // start/target tags reference each other by code and get resolved
+        // into the actual pitch trajectory by sequencer.js's
+        // computePitchTrajectories() pre-pass -- this just has to emit the
+        // right directive tokens at the right position, not do the math.
+        function tagToDirectiveTokens(tag) {
+            if (tag.type === 'start') {
+                if (!tag.targetCode) return '';
+                // "T" prefix: a hex code like "95" is all-digits, so bare
+                // [pitchStart=95] parses as the NUMERIC bracket form
+                // (value: 95) instead of the string form (valueStr: "95")
+                // that the trajectory lookup actually reads -- silently
+                // breaking any all-digit code. Prefixing guarantees it's
+                // never numeric-looking, on both ends consistently.
+                // NOTE: this carries the TARGET's code (what this tag
+                // points AT), not this tag's own code.
+                return `[pitchStart=T${tag.targetCode}] [pitchStartMode=${tag.mode}]`;
+            }
+            if (tag.type === 'target') {
+                const modeTok = `[pitchTargetMode=${tag.mode}]`;
+                const valTok = tag.mode === 'note' ? `[pitchTargetNote=${tag.value}]` : `[pitchTargetValue=${tag.value}]`;
+                // This carries the target tag's OWN code, so a start tag
+                // elsewhere can find it.
+                return `[pitchTarget=T${tag.code}] ${modeTok} ${valTok}`;
+            }
+            if (tag.type === 'tone') {
+                if (tag.mode === 'semitone') return `[semitone=${tag.value}]`;
+                if (tag.mode === 'frequency') return `[base=${tag.value}]`;
+                if (tag.mode === 'note') return `b=${tag.value}`;
+            }
+            if (tag.type === 'speed') {
+                // [rate=X] gets immediately overwritten by the very next
+                // word-chunk's own "r100"/"r150" wrapping (every word
+                // resets rate on its own) -- localSpeed is a SEPARATE
+                // runtime multiplier that chunk-wrapping never touches, so
+                // it survives across word boundaries. 110 = DEFAULTS.rate.
+                const ms = tag.mode === 'length' ? tag.value : tag.mode === 'pps' ? 1000 / tag.value : 12000 / tag.value;
+                return `[localSpeed=${(110 / ms).toFixed(6)}]`;
+            }
+            return '';
+        }
+
+        // Walks the contenteditable's child nodes in document order,
+        // alternating plain-IPA text spans (converted through the normal
+        // pipeline, with prosody marks suppressed) and tag markers
+        // (resolved directly into DSL directive tokens, bypassing the IPA
+        // converter entirely since they're not IPA).
+        function compileAdvancedProsody() {
+            const segments = [];
+            let buffer = '';
+            const flush = () => { if (buffer.trim()) segments.push({ kind: 'ipa', text: buffer }); buffer = ''; };
+            for (const node of ipaAdvanced.childNodes) {
+                if (node.nodeType === Node.TEXT_NODE) {
+                    buffer += node.textContent;
+                } else if (node.classList && node.classList.contains('tag-marker')) {
+                    flush();
+                    const tag = advancedTags.get(node.dataset.code);
+                    if (tag) segments.push({ kind: 'directive', text: tagToDirectiveTokens(tag) });
+                } else {
+                    buffer += node.textContent || '';
+                }
+            }
+            flush();
+
+            const unmatched = [];
+            SUPPRESS_TONE_PROSODY = true;
+            try {
+                const out = segments.map(s => s.kind === 'directive' ? s.text : expandProsodyMarkup(s.text, unmatched));
+                return { phonemeString: out.filter(Boolean).join(' '), unmatched };
+            } finally {
+                SUPPRESS_TONE_PROSODY = false;
+            }
+        }
 
         speedSlider.addEventListener('input', () => {
             speedValue.textContent = `${Number(speedSlider.value).toFixed(2)}×`;
@@ -1327,6 +1797,16 @@ function applySoundChanges(phonemicText, rulesText) {
         async function playIpa() {
             let raw = input.value;
             let phonemicNote = '';
+            let phonemeString, unmatched;
+
+            if (advancedCheckbox.checked) {
+                ({ phonemeString, unmatched } = compileAdvancedProsody());
+                if (!phonemeString) {
+                    setStatus('Type some IPA text first.', true);
+                    return;
+                }
+                raw = phonemeString; // for the status-line [] label below
+            } else {
 
             if (phonemicCheckbox.checked) {
                 const phonemicText = phonemicInput.value;
@@ -1349,7 +1829,6 @@ function applySoundChanges(phonemicText, rulesText) {
                 return;
             }
 
-            let phonemeString, unmatched;
             if (tobiCheckbox.checked) {
                 // IPA phrases are separated by "%" (ToBI's own boundary-tone
                 // symbol, reused here as the phrase divider); the tone tier
@@ -1377,6 +1856,8 @@ function applySoundChanges(phonemicText, rulesText) {
                 phonemeString = expandProsodyMarkup(raw, markupUnmatched);
                 unmatched = markupUnmatched;
             }
+
+            } // end of "not advanced mode" branch
 
             if (!phonemeString) {
                 setStatus('No recognizable IPA symbols found.', true);

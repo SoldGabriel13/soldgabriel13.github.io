@@ -322,6 +322,95 @@ function applyGlideDirectives(tokens) {
   return out;
 }
 
+// Resolves paired [pitchStart=CODE]/[pitchTarget=CODE] tags (from the
+// advanced prosody tag system) into an ABSOLUTE per-phoneme f0 override for
+// every phoneme in the span between them. This has to live here rather
+// than being precomputed by the caller because it needs the actual f0
+// value AT the start position -- which depends on everything before it
+// (directives, sticky pitch deltas) -- and only compile() tracks that.
+// The lightweight simulation below re-derives f0's organic progression
+// through the token stream (base/pitch directives, [semitone=N] shifts,
+// and phonemes' own sticky pitchDelta) WITHOUT actually rendering anything,
+// just to know "what would f0 be right before token X".
+// Known simplification: if a later trajectory's start falls inside an
+// earlier trajectory's own span, the pre-scan uses the ORGANIC (untagged)
+// f0 progression rather than the earlier trajectory's overridden values --
+// overlapping/nested trajectories are approximate, not exact.
+function computePitchTrajectories(tokens, opts, warnings) {
+  const overrides = new Map(); // phoneme token -> { startF0, endF0 }
+  const initialBaseF0 = opts.baseF0 ?? DEFAULTS.baseF0;
+
+  let f0 = initialBaseF0;
+  const f0Before = new Map();
+  for (const t of tokens) {
+    f0Before.set(t, f0);
+    if (t.type === 'directive') {
+      if (t.key === 'base' || t.key === 'pitch') {
+        if (t.reset) f0 = initialBaseF0;
+        else if (t.relative) f0 += t.value;
+        else if (typeof t.value === 'number') f0 = t.value;
+      } else if (t.key === 'semitone' && typeof t.value === 'number') {
+        f0 *= Math.pow(2, t.value / 12);
+      }
+    } else if (t.type === 'phoneme') {
+      if (!t.transient) f0 += t.pitchDelta;
+    }
+  }
+
+  const starts = [];
+  const targets = new Map();
+  let pendingStart = null, pendingTarget = null;
+  for (const t of tokens) {
+    if (t.type === 'directive') {
+      if (t.key === 'pitchStart' && t.valueStr) pendingStart = { code: t.valueStr, mode: 'continuous' };
+      else if (t.key === 'pitchStartMode' && t.valueStr && pendingStart) pendingStart.mode = t.valueStr;
+      else if (t.key === 'pitchTarget' && t.valueStr) pendingTarget = { code: t.valueStr, mode: 'frequency', value: null };
+      else if (t.key === 'pitchTargetMode' && t.valueStr && pendingTarget) pendingTarget.mode = t.valueStr;
+      else if (t.key === 'pitchTargetValue' && typeof t.value === 'number' && pendingTarget) pendingTarget.value = t.value;
+      else if (t.key === 'pitchTargetNote' && t.valueStr && pendingTarget) pendingTarget.value = t.valueStr;
+      continue;
+    }
+    if (t.type === 'phoneme') {
+      if (pendingStart) { starts.push({ ...pendingStart, afterToken: t }); pendingStart = null; }
+      if (pendingTarget) { targets.set(pendingTarget.code, { ...pendingTarget, afterToken: t }); pendingTarget = null; }
+    }
+  }
+
+  const phonemeTokens = tokens.filter(t => t.type === 'phoneme');
+  const indexOf = new Map(phonemeTokens.map((t, i) => [t, i]));
+
+  for (const start of starts) {
+    const target = targets.get(start.code);
+    if (!target) { warnings.push(`pitchStart references unknown or missing target tag "${start.code}"`); continue; }
+    const startIdx = indexOf.get(start.afterToken);
+    const targetIdx = indexOf.get(target.afterToken);
+    if (startIdx == null || targetIdx == null || targetIdx < startIdx) {
+      warnings.push(`pitchStart/pitchTarget pair "${start.code}" has an invalid span (target must come at or after start)`);
+      continue;
+    }
+    const startF0 = f0Before.get(start.afterToken);
+    let targetF0;
+    if (target.mode === 'frequency') targetF0 = target.value ?? startF0;
+    else if (target.mode === 'note') targetF0 = noteToHz(target.value) ?? startF0;
+    else if (target.mode === 'semitone') targetF0 = startF0 * Math.pow(2, (target.value ?? 0) / 12);
+    else targetF0 = startF0;
+
+    const span = phonemeTokens.slice(startIdx, targetIdx + 1);
+    const n = span.length;
+    const lerp = (a, b, f) => a + (b - a) * f;
+    for (let i = 0; i < n; i++) {
+      if (start.mode === 'step') {
+        const level = lerp(startF0, targetF0, n === 1 ? 1 : i / (n - 1));
+        overrides.set(span[i], { startF0: level, endF0: level });
+      } else {
+        const frac0 = n === 1 ? 0 : i / n, frac1 = n === 1 ? 1 : (i + 1) / n;
+        overrides.set(span[i], { startF0: lerp(startF0, targetF0, frac0), endF0: lerp(startF0, targetF0, frac1) });
+      }
+    }
+  }
+  return overrides;
+}
+
 export function compile(parsed, opts = {}) {
   // accept { tokens, source } shape from tokenize()
   // fallback to legacy otherwise
@@ -390,6 +479,9 @@ export function compile(parsed, opts = {}) {
   // Bare `b` / `r` / `s` / `v` / `h` / `t` / `g` reset to opts values
   const schedule = [];
   const warnings = [];
+  // Resolves [pitchStart=CODE]/[pitchTarget=CODE] tag pairs into an
+  // absolute per-phoneme f0 override (see computePitchTrajectories above).
+  const pitchOverrides = computePitchTrajectories(tokens, opts, warnings);
   const phrases = [];
   let timeMs = 0;
   // phrase covers [phraseSrcStart .. token.srcEnd) of source and time
@@ -432,8 +524,14 @@ export function compile(parsed, opts = {}) {
     const usePitchStress = t.stressed && (stressMode === 'classic' || stressMode === 'pitch' || stressMode === 'all');
     const useEffortStress = t.stressed && (stressMode === 'effort' || stressMode === 'all');
     const contourOffset = contourDeltas.get(t) ?? 0;
-    const startF0 = (usePitchStress ? f0 + DEFAULTS.stressF0Lift : f0) + contourOffset;
-    const endF0 = startF0 + t.pitchDelta;
+    const pitchOverride = pitchOverrides.get(t);
+    // A pitch-trajectory tag (advanced prosody system) is the FULL
+    // authority over f0 for its span -- it bypasses stress lift and
+    // contour shaping for that phoneme rather than stacking with them,
+    // since the whole point of tagging a span is explicit manual control.
+    const startF0 = pitchOverride ? pitchOverride.startF0
+      : (usePitchStress ? f0 + DEFAULTS.stressF0Lift : f0) + contourOffset;
+    const endF0 = pitchOverride ? pitchOverride.endF0 : startF0 + t.pitchDelta;
     const prevEffort = effort;
     if (useEffortStress) effort = Math.min(1, effort + 0.25);
     // An inline "AA [glideTo] OO" directive (see applyGlideDirectives above)
@@ -492,7 +590,9 @@ export function compile(parsed, opts = {}) {
     for (const t of syllableQueue) {
       renderPhoneme(t, slot);
       emitPhrase(t);
-      if (!t.transient) f0 += t.pitchDelta;
+      const ov = pitchOverrides.get(t);
+      if (ov) f0 = ov.endF0;
+      else if (!t.transient) f0 += t.pitchDelta;
     }
     syllableQueue = [];
     inSyllable = false;
@@ -642,6 +742,21 @@ export function compile(parsed, opts = {}) {
           // Already consumed by the computeContourDeltas() pre-pass above;
           // nothing to do at render time.
           break;
+        case 'semitone':
+          // Multiplicative pitch shift from CURRENT f0 -- N semitones is a
+          // frequency ratio of 2^(N/12), not an additive Hz amount, so this
+          // is deliberately its own case rather than reusing 'base'/'pitch'.
+          if (typeof t.value === 'number') f0 *= Math.pow(2, t.value / 12);
+          break;
+        case 'pitchStart':
+        case 'pitchStartMode':
+        case 'pitchTarget':
+        case 'pitchTargetMode':
+        case 'pitchTargetValue':
+        case 'pitchTargetNote':
+          // Already consumed by the computePitchTrajectories() pre-pass
+          // above; nothing to do at render time.
+          break;
         case 'glideTo':
           // A well-formed "PHONEME [glideTo] PHONEME" never reaches here --
           // applyGlideDirectives() consumes it before the main loop runs.
@@ -673,7 +788,9 @@ export function compile(parsed, opts = {}) {
     renderPhoneme(t, phoneRate);
     emitPhrase(t);
 
-    if (!t.transient) f0 += t.pitchDelta;
+    const pitchOv = pitchOverrides.get(t);
+    if (pitchOv) f0 = pitchOv.endF0;
+    else if (!t.transient) f0 += t.pitchDelta;
   }
 
   if (inSyllable) {
