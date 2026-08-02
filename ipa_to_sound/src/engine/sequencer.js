@@ -1,3 +1,4 @@
+// src/engine/sequencer.js
 // Phoneme-string parser and schedule compiler
 
 import { banks, resolveBank } from './banks/index.js';
@@ -58,7 +59,8 @@ function classifyPart(part) {
   if (part === '(') return { type: 'syllable_open' };
   if (part === ')') return { type: 'syllable_close' };
   if (part in PAUSE_MS) return { type: 'pause', ms: PAUSE_MS[part], char: part };
-  if (part === '!' || part === "'") return { type: 'stress_mark' };
+  // --- MODIFIED: store the actual character for stress marks ---
+  if (part === '!' || part === "'") return { type: 'stress_mark', char: part };
 
   const bankSwitch = part.match(/^\[bank=([A-Za-z0-9_.\-]+)\]$/);
   if (bankSwitch) return { type: 'bank_switch', name: bankSwitch[1] };
@@ -120,10 +122,12 @@ function classifyPart(part) {
   if (phoneme) {
     const transientDelta = phoneme[3] !== undefined ? Number(phoneme[3]) : null;
     const stickyDelta = phoneme[4] !== undefined ? Number(phoneme[4]) : null;
+    // --- MODIFIED: store the stress character if present ---
     return {
       type: 'phoneme',
       code: phoneme[1],
       stressed: phoneme[2] !== undefined,
+      stressChar: phoneme[2] || null,   // '!' or "'" or null
       pitchDelta: transientDelta ?? stickyDelta ?? 0,
       transient: transientDelta !== null,
     };
@@ -175,16 +179,42 @@ export function tokenize(rawInput) {
     tok.srcStart = srcStart;
     tok.srcEnd = srcEnd;
 
+    // --- MODIFIED: store the stress character on the phoneme ---
     if (tok.type === 'stress_mark') {
       for (let j = tokens.length - 1; j >= 0; j--) {
-        if (tokens[j].type === 'phoneme') { tokens[j].stressed = true; break; }
+        if (tokens[j].type === 'phoneme') {
+          tokens[j].stressed = true;
+          tokens[j].stressChar = tok.char;   // remember which mark
+          break;
+        }
       }
       continue;
     }
     tokens.push(tok);
   }
 
-  return { tokens, source };
+  // --- NEW: insert a pause after apostrophe-stressed phonemes ---
+  const finalTokens = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    finalTokens.push(t);
+
+    if (t.type === 'phoneme' && t.stressChar === "'") {
+      const next = tokens[i + 1];
+      // Only add a pause if the next token is NOT already a pause
+      if (!next || next.type !== 'pause') {
+        finalTokens.push({
+          type: 'pause',
+          ms: PAUSE_MS['.'],
+          char: '.',
+          srcStart: t.srcEnd,
+          srcEnd: t.srcEnd,
+        });
+      }
+    }
+  }
+
+  return { tokens: finalTokens, source };
 }
 
 // Shapes a contour across one span of phoneme tokens (a sentence, or -- for
