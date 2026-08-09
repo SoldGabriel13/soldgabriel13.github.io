@@ -320,6 +320,12 @@
     <main>
         <div class="controls">
             <input id="ipa" value="he.'lo͡ʊ 'ðɛ.ɚ || ðɪs ɪs 'kʊɫ" placeholder="IPA text" />
+            <div id="ipaAdvancedWrap" style="display:none; margin-top:0.6rem;">
+                <label style="font-size:0.85rem; display:block; margin-bottom:0.2rem;">
+                    IPA text (tags shown as colored vertical lines, not characters)
+                </label>
+                <div id="ipaAdvanced" class="ipa-advanced-input" contenteditable="true"></div>
+            </div>
         </div>
         <div class="speed-control">
             <label for="kbEnabled"><input id="kbEnabled" type="checkbox" /> IPA keyboard</label>
@@ -363,12 +369,6 @@
             <label for="advancedEnabled"><input id="advancedEnabled" type="checkbox" /> Advanced prosody</label>
         </div>
         <div id="advancedRows" style="display:none;">
-            <div class="controls">
-                <label style="font-size:0.85rem; display:block; margin-bottom:0.2rem;">
-                    IPA text (tags shown as colored vertical lines, not characters)
-                </label>
-                <div id="ipaAdvanced" class="ipa-advanced-input" contenteditable="true"></div>
-            </div>
             <button id="insertTagBtn" class="play-btn" type="button">+ Insert tag</button>
             <div id="tagMenuContainer"></div>
         </div>
@@ -441,6 +441,7 @@
             '\u02D1': { prefix: 'r165', closer: 'r' }, // ˑ  half-long
             '\u0306': { prefix: 'r70', closer: 'r' },  // ̆  extra-short (combining breve)
             '\u0324': { prefix: 'h0.9', closer: 'h' }, // ̤  breathy voice (combining diaeresis below)
+            '\u0330': { prefix: 'c1', closer: 'c' },   // ̰  creaky voice / vocal fry (combining tilde below)
         };
 
         // Boundary marks: emitted as standalone tokens, not tied to a phoneme.
@@ -1525,6 +1526,7 @@ function applySoundChanges(phonemicText, rulesText) {
         const tagMenuContainer = document.getElementById('tagMenuContainer');
         const kbCheckbox = document.getElementById('kbEnabled');
         const kbPanel = document.getElementById('kbPanel');
+        const ipaAdvancedWrap = document.getElementById('ipaAdvancedWrap');
 
         // --- IPA keyboard -----------------------------------------------
         // A simplified click-to-insert version of
@@ -1582,6 +1584,13 @@ function applySoundChanges(phonemicText, rulesText) {
             { label: 'Voice quality', marks: [
                 { show: 'ã', insert: '\u0303', title: 'nasalized' },
                 { show: 'a̤', insert: '\u0324', title: 'breathy voice' },
+                { show: 'a̰', insert: '\u0330', title: 'creaky voice (vocal fry)' },
+            ] },
+            { label: 'Secondary articulation', marks: [
+                { show: 'ʰ', insert: '\u02B0', title: 'aspirated' },
+                { show: 'ʲ', insert: '\u02B2', title: 'palatalized' },
+                { show: 'ʷ', insert: '\u02B7', title: 'labialized' },
+                { show: 'ˠ', insert: '\u02E0', title: 'velarized' },
             ] },
             { label: 'Boundaries', marks: [
                 { show: '|', insert: '|', title: 'minor (foot) boundary' },
@@ -1856,6 +1865,7 @@ function applySoundChanges(phonemicText, rulesText) {
         advancedCheckbox.addEventListener('change', () => {
             const on = advancedCheckbox.checked;
             advancedRows.style.display = on ? '' : 'none';
+            ipaAdvancedWrap.style.display = on ? '' : 'none';
             input.style.display = on ? 'none' : '';
             input.disabled = on;
             updateModeExclusivity();

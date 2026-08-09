@@ -18,7 +18,7 @@
 //   ./wav.js          - WAV encoder
 
 export { BandpassBiquad, glottalPulse, xorshift, softClip } from './dsp.js';
-export { FormantSynth, PARAMS, DEFAULT, renderToBuffer } from './synth-core.js';
+export { FormantSynth, PARAMS, DEFAULT, renderToBuffer, glottalTable, creakyTable } from './synth-core.js';
 export { phonemes, PHONEME_KEYS } from './phonemes.js';
 export { tokenize, compile, compileString } from './sequencer.js';
 export { encodeWav } from './wav.js';

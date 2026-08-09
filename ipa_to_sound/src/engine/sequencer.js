@@ -102,6 +102,7 @@ function classifyPart(part) {
       v: 'vibrato', w: 'vibratoRate',
       m: 'tremolo', n: 'tremoloRate',
       h: 'aspiration', t: 'tilt', g: 'effort',
+      c: 'creak',
     };
     const key = keyMap[letter];
     if (key) {
@@ -427,6 +428,7 @@ export function compile(parsed, opts = {}) {
   const initialAspiration  = opts.aspiration ?? 0;
   const initialTilt        = opts.tilt ?? 0;
   const initialEffort      = opts.effort ?? 0.5;
+  const initialCreak       = opts.creak ?? 0;
   const initialGain        = opts.gain ?? 3.5; // matches synth-core.js's own default so untouched content is unaffected
   const registry           = opts.registry ?? banks;
   // Overall pacing multiplier: 2 = twice as fast, 0.5 = half speed.
@@ -467,6 +469,7 @@ export function compile(parsed, opts = {}) {
   let aspiration   = initialAspiration;
   let tilt         = initialTilt;
   let effort       = initialEffort;
+  let creak        = initialCreak;
   let gain         = initialGain;
   // Region-local speed multiplier, set/reset via [localSpeed=N]. Unlike
   // `speed` above (a single global pass over the finished schedule), this
@@ -476,7 +479,7 @@ export function compile(parsed, opts = {}) {
   // span at localSpeed=1.4 on top of a 1.5x Pace setting plays back at
   // 1.4*1.5 = 2.1x, not a flat 1.4x.
   let localSpeedMult = opts.localSpeed > 0 ? opts.localSpeed : 1;
-  // Bare `b` / `r` / `s` / `v` / `h` / `t` / `g` reset to opts values
+  // Bare `b` / `r` / `s` / `v` / `h` / `t` / `g` / `c` reset to opts values
   const schedule = [];
   const warnings = [];
   // Resolves [pitchStart=CODE]/[pitchTarget=CODE] tag pairs into an
@@ -606,6 +609,7 @@ export function compile(parsed, opts = {}) {
     aspiration,
     tilt,
     effort,
+    creak,
     gain,
   });
 
@@ -715,6 +719,11 @@ export function compile(parsed, opts = {}) {
           if (t.reset) effort = initialEffort;
           else if (t.relative) effort += t.value;
           else effort = t.value;
+          break;
+        case 'creak':
+          if (t.reset) creak = initialCreak;
+          else if (t.relative) creak += t.value;
+          else creak = t.value;
           break;
         case 'gain':
           if (t.reset) gain = initialGain;
