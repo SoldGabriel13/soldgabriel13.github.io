@@ -98,6 +98,8 @@ select { max-width: 100%; }
 .cap { display: flex; justify-content: flex-start; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); min-height: 42px; flex-wrap: wrap; }
 .cap h2 { margin: 0 auto 0 0; font-size: 12px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
 .axes { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.texopts { flex-wrap: wrap; padding: 0 12px 6px; row-gap: 4px; }
+.texopts select { max-width: 130px; }
 .axes select { min-height: 28px; padding: 3px 6px; font-size: 12px; max-width: 110px; }
 canvas { display: block; width: 100%; height: auto; }
 #scene { aspect-ratio: 16 / 10; }
@@ -148,6 +150,10 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-width: 0; ma
 .tbody.tinline { flex-direction: row; flex-wrap: wrap; gap: 4px 22px; }
 .trow { min-width: 0; max-width: 100%; overflow-x: auto; overflow-y: hidden; padding-block: 2px; }
 .tinline .trow { overflow: visible; }
+.trow.pick { display: flex; align-items: center; gap: 8px; }
+.trow.pick.off { opacity: .4; }
+.trow.pick input { flex: none; margin: 0; }
+.tm { min-width: 0; }
 .trow.raw { font: 12.5px var(--font-mono); white-space: pre; color: var(--muted); }
 .trow mjx-container { margin: 0 !important; text-align: left !important; color: var(--ink); }
 .texsrc { border-top: 1px solid var(--line); background: var(--sunk); }
@@ -321,13 +327,14 @@ E' = c^2*curl(B) - J
 U = 0.5*(dot(E, E) + c^2*dot(B, B))</pre>
           <p>The <code>grid</code> line sets the number of points and the region. <code>scalar u</code> declares scalar fields and <code>vector E, B</code> vector ones (3 components; <code>vector E[2]</code> for 2). Equations with a prime are applied at every grid point and can use <code>x</code>, <code>y</code> (also <code>gx</code>, <code>gy</code> if a variable already has that name), <code>t</code>, parameters and your ordinary variables. <code>u'' = c^2*lap(u)</code> is a wave equation. <code>init E = (0, 0, exp(-(x^2+y^2)))</code> sets the starting field. A plain <code>name = ...</code> is a helper field recomputed each step (sources, energy density, <code>E = -grad(phi)</code>).</p>
           <p><b>Operators:</b> <code>grad(u)</code>, <code>div(F)</code>, <code>curl(F)</code>, <code>lap(u)</code>, and the partial derivatives <code>Dx Dy Dxx Dyy</code>. They need a field name inside; to differentiate an expression, make it a helper first. Fields depend on x and y only, so the z component of a vector is just a component that does not vary with z.</p>
+          <p><b>GPU:</b> field equations run as shaders on the graphics card, with the same fixed <code>dt</code> (the GPU box above the scene switches it off). Values are 32-bit there, so results differ from the CPU by about 1e-6. Using <code>fsum</code>, <code>fmax</code>, <code>D</code> or <code>integral</code> inside a field equation falls back to the CPU, and the note beside the box says why.</p>
           <p><b>Time stepping:</b> equations run in the order written and each sees the latest values, so write <code>B'</code> before <code>E'</code>. Keep <code>dt</code> below the grid spacing divided by the wave speed or the grid blows up (you get a message). <b>Boundaries:</b> <code>reflect</code> (default), <code>wall</code> (fields forced to zero at the edge, loses some energy), <code>periodic</code>, <code>absorb [width in cells] [strength]</code>.</p>
           <p><b>Fields and particles:</b> <code>sample(E, px, py)</code> reads a field at any point (a vector field gives a vector), <code>fsum(U)</code> integrates a field over the grid and <code>fmax(U)</code> is its largest size. Both work in ordinary equations and helpers, for example <code>W = fsum(U)</code> to plot the total energy, or <code>v' = q*(sample(E, r.x, r.y) + cross(v, sample(B, r.x, r.y)))</code> for the Lorentz force. Particles feel the fields but do not push back on them. Choose what to show with the Show list above the scene (a vector offers its magnitude and each component), tick Arrows for direction, and set Range to fix the colour scale. Hover to read a value.</p>
         </details>
         <details class="sub"><summary>8. Plots, derivatives and layout</summary>
           <p><b>Time series:</b> click a chip to show or hide a curve. <b>Window</b> is how many time units stay on screen (0 shows everything), <b>Trail</b> how long the points leave a tail, <b>Speed</b> the playback rate, and <b>Step dt</b> the integration step. <b>Phase:</b> pick any two quantities for the axes.</p>
           <p><b>Derivatives:</b> pick any numerator and denominator, from time, variables and helpers, and the card plots dA/dB (against time or against the denominator) with no formula needed. It is computed as (dA/dt)/(dB/dt) along the run. "All pairs" shows every ratio now; click a cell to plot it.</p>
-          <p><b>Typeset:</b> shows your equations in LaTeX. Choose dots or d/dt notation, and the LaTeX button gives source you can copy. Every panel can be hidden, made fullscreen (Esc exits) or resized with its corner grip (double-click the grip to reset). <b>Save / load</b> writes the whole system, the view and your settings as text you can copy and paste back later.</p>
+          <p><b>Typeset:</b> shows your equations in LaTeX. Choose dots or d/dt for time derivatives; <b>Vectors</b> picks bold symbols with ∇ (∇u, ∇·F, ∇×F, ∇²u) or the expanded components; <b>Norm</b> shows abs(v) and norm(v) as ‖v‖ or |v|; <b>Partials</b> chooses ∂u/∂x or ∂ₓu; <b>Laplacian</b> chooses ∇², Δ or the explicit sum. The LaTeX button gives source you can copy. Every panel can be hidden, made fullscreen (Esc exits) or resized with its corner grip (double-click the grip to reset). <b>Save / load</b> writes the whole system, the view and your settings as text you can copy and paste back later.</p>
         </details>
       </details>
     </aside>
@@ -369,6 +376,7 @@ U = 0.5*(dot(E, E) + c^2*dot(B, B))</pre>
         <div id="fieldBar" class="fbar" hidden>
           <label>Show <select id="fvSel" aria-label="Field to show"></select></label>
           <label><input type="checkbox" id="fvArrows"> Arrows</label>
+          <label title="Run the field equations on the graphics card"><input type="checkbox" id="gpuOn" checked> GPU</label><span id="gpuNote" class="hint"></span>
           <label>Range <input id="fvScale" type="number" min="0" step="any" placeholder="auto" aria-label="Colour range, blank for automatic"></label>
         </div>
         <canvas id="scene" role="img" aria-label="Animated scene of the simulated system"></canvas>
@@ -381,7 +389,18 @@ U = 0.5*(dot(E, E) + c^2*dot(B, B))</pre>
             <label for="notation">Derivatives</label>
             <select id="notation"><option value="dot">Dots</option><option value="lei">d/dt</option></select>
             <button id="texToggle" class="btn small" type="button" aria-expanded="false" aria-controls="texSrc">LaTeX</button>
+            <button id="texPick" class="btn small" type="button" aria-pressed="false" title="Choose which lines are shown">Lines</button>
           </div>
+        </div>
+        <div class="axes texopts">
+          <label for="texVec">Vectors</label>
+          <select id="texVec"><option value="arrow">Arrow, ∇</option><option value="bold">Bold, ∇</option><option value="comp">Components</option></select>
+          <label for="texNorm">Norm</label>
+          <select id="texNorm"><option value="dbl">‖v‖</option><option value="sgl">|v|</option></select>
+          <label for="texPd">Partials</label>
+          <select id="texPd"><option value="frac">∂u/∂x</option><option value="sub">∂ₓu</option></select>
+          <label for="texLap">Laplacian</label>
+          <select id="texLap"><option value="nabla">∇²u</option><option value="delta">Δu</option><option value="sum">∂ₓₓu+∂ᵧᵧu</option></select>
         </div>
         <p id="texEmpty" class="help tpad" hidden>Your equations appear here as you type them.</p>
         <div id="texView" class="tex"></div>
@@ -1213,7 +1232,7 @@ function expandAll(T) {
 }
 
 // ---------- fields on a grid (PDEs) ----------
-const FRT = { arr: [], nx: 1, ny: 1, x0: 0, y0: 0, dx: 1, dy: 1, periodic: false, i: 0, j: 0, step: 0, bad: false, tmp: null, sums: { step: -1, v: new Map() } };
+const FRT = { arr: [], nx: 1, ny: 1, x0: 0, y0: 0, dx: 1, dy: 1, periodic: false, i: 0, j: 0, step: 0, bad: false, tmp: null, dirty: null, sums: { step: -1, v: new Map() } };
 function fIdx(i, j) {
   const nx = FRT.nx, ny = FRT.ny;
   if (FRT.periodic) { i = ((i % nx) + nx) % nx; j = ((j % ny) + ny) % ny; }
@@ -1232,6 +1251,7 @@ function fieldDeriv(k, op) {
   }
 }
 function fieldSample(k, px, py) {
+  if (GPUHOOK.sync) GPUHOOK.sync(k);
   const a = FRT.arr[k];
   if (!a) return 0;
   const fx = (px - FRT.x0) / FRT.dx, fy = (py - FRT.y0) / FRT.dy, nx = FRT.nx, ny = FRT.ny;
@@ -1242,6 +1262,7 @@ function fieldSample(k, px, py) {
   return (a[r0] * (1 - u) + a[r0 + 1] * u) * (1 - v) + (a[r1] * (1 - u) + a[r1 + 1] * u) * v;
 }
 function fieldReduce(k, isSum) {
+  if (GPUHOOK.sync) GPUHOOK.sync(k);
   const a = FRT.arr[k];
   if (!a) return 0;
   const c = FRT.sums;
@@ -1275,6 +1296,7 @@ function fieldInit(m, y) {
   const g = m.fld, N = g.nx * g.ny;
   FRT.nx = g.nx; FRT.ny = g.ny; FRT.x0 = g.x0; FRT.y0 = g.y0; FRT.dx = g.dx; FRT.dy = g.dy; FRT.periodic = g.bc === 'periodic';
   FRT.arr = g.names.map(() => new Float64Array(N));
+  FRT.dirty = new Uint8Array(g.names.length); GPUHOOK.auth = 'cpu';
   FRT.tmp = new Float64Array(N); FRT.step = 0; FRT.bad = false; FRT.sums = { step: -1, v: new Map() };
   m.snapshot(0, y);
   for (const q of g.inits) fieldPass(m, q.k, q.fn, 0, 0);
@@ -1312,6 +1334,172 @@ function fieldStep(m, t, y, h) {
   FRT.step++;
   env[0] = t + h;
   fieldHelpers(m);
+}
+
+// ---------- GPU plan: field equations compiled to GLSL ----------
+const GPUHOOK = { sync: null, auth: 'cpu' };
+const GL_FN1 = { sin: 'sin', cos: 'cos', tan: 'tan', asin: 'asin', acos: 'acos', atan: 'atan', sinh: 'sinh', cosh: 'cosh', tanh: 'tanh', exp: 'exp', log: 'log', ln: 'log', log2: 'log2', sqrt: 'sqrt', abs: 'abs', sign: 'sign', floor: 'floor', ceil: 'ceil' };
+function glLit(v) { let s = String(v); if (!/[.eE]/.test(s)) s += '.0'; return '(' + s + ')'; }
+// Same grammar as compileExpr, but it returns GLSL text. Throws when something cannot run on the GPU.
+function glslExpr(src, res, G) {
+  const toks = tokenize(src);
+  if (!toks.length) throw new Error('Empty expression');
+  if (G.depth > 8) throw new Error('functions nest too deeply for the GPU');
+  let p = 0;
+  const isOp = v => p < toks.length && toks[p].t === 'op' && toks[p].v === v;
+  const expect = v => { if (!isOp(v)) throw new Error("Expected '" + v + "'"); p++; };
+  const isWord = w => p < toks.length && toks[p].t === 'id' && toks[p].v === w && !(toks[p + 1] && toks[p + 1].t === 'op' && toks[p + 1].v === '(');
+  function cmp() {
+    let a = land();
+    while (isWord('or')) { p++; const b = land(); a = '(float((' + a + ')>0.5||(' + b + ')>0.5))'; }
+    return a;
+  }
+  function land() {
+    let a = rel();
+    while (isWord('and')) { p++; const b = rel(); a = '(float((' + a + ')>0.5&&(' + b + ')>0.5))'; }
+    return a;
+  }
+  function rel() {
+    let a = add();
+    for (;;) {
+      const t = toks[p];
+      if (t && t.t === 'op' && (t.v === '<' || t.v === '>' || t.v === '<=' || t.v === '>=')) { p++; const b = add(); a = '(float(' + a + t.v + b + '))'; }
+      else return a;
+    }
+  }
+  function add() { let a = term(); while (isOp('+') || isOp('-')) { const o = toks[p++].v, b = term(); a = '(' + a + o + b + ')'; } return a; }
+  function term() { let a = unary(); while (isOp('*') || isOp('/')) { const o = toks[p++].v, b = unary(); a = '(' + a + o + b + ')'; } return a; }
+  function unary() {
+    if (isOp('-')) { p++; return '(-' + unary() + ')'; }
+    if (isOp('+')) { p++; return unary(); }
+    return power();
+  }
+  function power() { const a = primary(); if (isOp('^')) { p++; const b = unary(); return 'pw(' + a + ',' + b + ')'; } return a; }
+  function slotName(idx) {
+    if (G.subst && G.subst.has(idx)) return G.subst.get(idx);
+    if (G.slotK.has(idx)) { const k = G.slotK.get(idx); G.used.add(k); return 'f' + k; }
+    if (idx === G.fld.xs) return 'gx';
+    if (idx === G.fld.ys) return 'gy';
+    return 'uE[' + (idx >> 2) + '].' + 'xyzw'[idx & 3];
+  }
+  function primary() {
+    const tk = toks[p++];
+    if (!tk) throw new Error('The expression ends too early');
+    if (tk.t === 'num') return glLit(tk.v);
+    if (tk.t === 'id') {
+      if (isOp('(')) {
+        const name = tk.v;
+        if (FIELD_FN.has(name)) {
+          p++;
+          const v = toks[p++], k = v && G.fld.idx.has(v.v) ? G.fld.idx.get(v.v) : -1;
+          if (k < 0) throw new Error(name + ' needs a field name first');
+          if (name === 'fsum' || name === 'fmax') throw new Error(name + ' inside a field equation is not available on the GPU');
+          G.used.add(k);
+          if (name === 'sample') { expect(','); const ex = cmp(); expect(','); const ey = cmp(); expect(')'); G.samp.add(k); return 'S' + k + '(' + ex + ',' + ey + ')'; }
+          expect(')');
+          const at = o => 'F' + k + 'at(c+ivec2(' + o + '))';
+          if (name === 'Dx') return '((' + at('1,0') + '-' + at('-1,0') + ')/(2.0*uGeo.z))';
+          if (name === 'Dy') return '((' + at('0,1') + '-' + at('0,-1') + ')/(2.0*uGeo.w))';
+          if (name === 'Dxx') return '((' + at('1,0') + '-2.0*f' + k + '+' + at('-1,0') + ')/(uGeo.z*uGeo.z))';
+          return '((' + at('0,1') + '-2.0*f' + k + '+' + at('0,-1') + ')/(uGeo.w*uGeo.w))';
+        }
+        if (name === 'D' || name === 'integral') throw new Error(name + ' is not available on the GPU');
+        if (G.fns && G.fns.has(name)) {
+          const f = G.fns.get(name);
+          if (!f.src) throw new Error('user function without source');
+          p++;
+          const args = [];
+          if (!isOp(')')) { args.push(cmp()); while (isOp(',')) { p++; args.push(cmp()); } }
+          expect(')');
+          if (args.length !== f.arity) throw new Error(name + ' takes ' + f.arity + ' arguments');
+          const sub = new Map(G.subst || []);
+          f.sl.forEach((s, i) => sub.set(s, '(' + args[i] + ')'));
+          return '(' + glslExpr(f.src, f.resF, Object.assign({}, G, { subst: sub, depth: G.depth + 1 })) + ')';
+        }
+        if (!has(FUNCS, name)) throw new Error("Unknown function '" + name + "'");
+        p++;
+        const args = [];
+        if (!isOp(')')) { args.push(cmp()); while (isOp(',')) { p++; args.push(cmp()); } }
+        expect(')');
+        const a = args;
+        if (has(GL_FN1, name)) return GL_FN1[name] + '(' + a[0] + ')';
+        switch (name) {
+          case 'log10': return '(log(' + a[0] + ')*0.4342944819)';
+          case 'cbrt': return 'cbrt_(' + a[0] + ')';
+          case 'round': return 'floor(' + a[0] + '+0.5)';
+          case 'atan2': return 'atan(' + a[0] + ',' + a[1] + ')';
+          case 'pow': return 'pw(' + a[0] + ',' + a[1] + ')';
+          case 'mod': return 'md(' + a[0] + ',' + a[1] + ')';
+          case 'step': return '(' + a[0] + '>=0.0?1.0:0.0)';
+          case 'ifelse': return '((' + a[0] + ')>0.5?(' + a[1] + '):(' + a[2] + '))';
+          case 'hypot': return 'sqrt(' + a.map(x => '(' + x + ')*(' + x + ')').join('+') + ')';
+          case 'min': case 'max': return a.reduce((u, v) => name + '(' + u + ',' + v + ')');
+        }
+        throw new Error("'" + name + "' is not available on the GPU");
+      }
+      const idx = res(tk.v);
+      if (idx >= 0) return slotName(idx);
+      if (has(CONSTS, tk.v)) return glLit(CONSTS[tk.v]);
+      throw new Error("Unknown name '" + tk.v + "'");
+    }
+    if (tk.v === '(') { const a = cmp(); expect(')'); return '(' + a + ')'; }
+    throw new Error("Unexpected '" + tk.s + "'");
+  }
+  const out = cmp();
+  if (p < toks.length) throw new Error("Unexpected '" + toks[p].s + "'");
+  return out;
+}
+function gpuFrag(g, NE4, G, body) {
+  const used = [...G.used].sort((a, b) => a - b);
+  let s = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
+  s += 'layout(std140) uniform Env { vec4 uE[' + NE4 + ']; };\nuniform float uH;\nuniform ivec2 uN;\nuniform vec4 uGeo;\n';
+  used.forEach(k => { s += 'uniform sampler2D uF' + k + ';\n'; });
+  s += 'out vec4 o;\n';
+  s += 'float pw(float a, float b) { if (a < 0.0 && b == floor(b)) return (mod(b, 2.0) == 0.0 ? 1.0 : -1.0) * pow(-a, b); return pow(a, b); }\n';
+  s += 'float md(float a, float b) { return a - b * floor(a / b); }\nfloat cbrt_(float x) { return sign(x) * pow(abs(x), 1.0 / 3.0); }\n';
+  s += g.bc === 'periodic'
+    ? 'ivec2 nbr(ivec2 c) { return ivec2((c.x % uN.x + uN.x) % uN.x, (c.y % uN.y + uN.y) % uN.y); }\n'
+    : 'ivec2 nbr(ivec2 c) { return clamp(c, ivec2(0), uN - 1); }\n';
+  used.forEach(k => { s += 'float F' + k + 'at(ivec2 c) { return texelFetch(uF' + k + ', nbr(c), 0).r; }\n'; });
+  G.samp.forEach(k => {
+    s += 'float S' + k + '(float px, float py) {\n  float fx = (px - uGeo.x) / uGeo.z, fy = (py - uGeo.y) / uGeo.w;\n' +
+      '  if (!(fx >= -1e-9 && fy >= -1e-9 && fx <= float(uN.x - 1) + 1e-9 && fy <= float(uN.y - 1) + 1e-9)) return 0.0;\n' +
+      '  int i0 = min(uN.x - 2, max(0, int(floor(fx)))), j0 = min(uN.y - 2, max(0, int(floor(fy))));\n' +
+      '  float u = fx - float(i0), v = fy - float(j0);\n' +
+      '  float a = texelFetch(uF' + k + ', ivec2(i0, j0), 0).r, b = texelFetch(uF' + k + ', ivec2(i0 + 1, j0), 0).r, c = texelFetch(uF' + k + ', ivec2(i0, j0 + 1), 0).r, d = texelFetch(uF' + k + ', ivec2(i0 + 1, j0 + 1), 0).r;\n' +
+      '  return mix(mix(a, b, u), mix(c, d, u), v);\n}\n';
+  });
+  s += 'void main() {\n  ivec2 c = ivec2(gl_FragCoord.xy);\n  float gx = uGeo.x + float(c.x) * uGeo.z, gy = uGeo.y + float(c.y) * uGeo.w;\n';
+  used.forEach(k => { s += '  float f' + k + ' = texelFetch(uF' + k + ', c, 0).r;\n'; });
+  s += '  float v = ' + body + ';\n  o = vec4(v, 0.0, 0.0, 1.0);\n}\n';
+  return { src: s, used };
+}
+// One entry per render pass, in the order the CPU runs them: rate equations, boundary, helper fields.
+function gpuBuild(m) {
+  const g = m.fld;
+  if (!g || !g.fres) throw new Error('no fields');
+  if (g.names.length > 14) throw new Error('the GPU path handles up to 14 fields');
+  const NE4 = Math.max(1, Math.ceil(m.env.length / 4));
+  const slotK = new Map();
+  g.slot.forEach((s, k) => slotK.set(s, k));
+  const passes = [];
+  const mkG = () => ({ fld: g, slotK, fns: g.fns, used: new Set(), samp: new Set(), subst: null, depth: 0 });
+  const add = (k, expr, G, late) => { const f = gpuFrag(g, NE4, G, expr); passes.push({ k, src: f.src, used: f.used, late }); };
+  for (const q of g.eqs) {
+    const G = mkG(); G.used.add(q.k);
+    if (q.from >= 0) { G.used.add(q.from); add(q.k, 'f' + q.k + ' + uH * f' + q.from, G, false); }
+    else add(q.k, 'f' + q.k + ' + uH * (' + glslExpr(q.src, g.fres, G) + ')', G, false);
+  }
+  if (g.bc === 'wall' || g.bc === 'absorb') {
+    for (const k of g.states) {
+      const G = mkG(); G.used.add(k);
+      const d = 'float(min(min(c.x, c.y), min(uN.x - 1 - c.x, uN.y - 1 - c.y)))', w = glLit(Math.max(1, g.absW)), S = glLit(g.absS);
+      add(k, g.bc === 'wall' ? '(' + d + ' == 0.0 ? 0.0 : f' + k + ')'
+        : '(' + d + ' < ' + w + ' ? f' + k + ' * max(0.0, 1.0 - ' + S + ' * pow((' + w + ' - ' + d + ') / ' + w + ', 2.0) * uH) : f' + k + ')', G, false);
+    }
+  }
+  for (const h of g.helpers) { const G = mkG(); add(h.k, glslExpr(h.src, g.fres, G), G, true); }
+  return { passes, NE4 };
 }
 
 function buildModel(T0) {
@@ -1483,7 +1671,7 @@ function buildModel(T0) {
       args.forEach((a, i) => local.set(a, slots[i]));
       const resF = n => (local.has(n) ? local.get(n) : resolve(n));
       const bodies = (tup || [rhs]).map(s => compileExpr(s, resF, ctx));
-      bodies.forEach((b, i) => fns.set(names[i], { arity: args.length, sl: slots, body: b }));
+      bodies.forEach((b, i) => fns.set(names[i], { arity: args.length, sl: slots, body: b, src: (tup || [rhs])[i], resF }));
       if (args.length === 2) {
         if (tup && tup.length === 2) fieldDefs.push({ name: fname, sl: slots, fx: bodies[0], fy: bodies[1] });
         else if (tup) { /* a 3-vector function is not drawn */ }
@@ -1565,12 +1753,13 @@ function buildModel(T0) {
       dx: (g.x1 - g.x0) / (g.nx - 1), dy: (g.y1 - g.y0) / (g.ny - 1), bc: fp.bc.kind, absW: fp.bc.w, absS: fp.bc.s,
       eqs: [], inits: [], helpers: [], states: [], edgeIdx: null, edgeS: null
     };
+    fld.fres = fres; fld.fns = fns;
     fkind.forEach((kd, k) => { if (kd === 'state') fld.states.push(k); });
     fld.sig = fnames.join('|') + '#' + [g.nx, g.ny, g.x0, g.x1, g.y0, g.y1, fp.bc.kind].join(',');
     const comp = (src, line) => { try { return compileExpr(src, fres, ctx); } catch (e) { err('fields', line, e.message); return null; } };
     fp.rates.forEach(r => {
       const top = fidx.get(r.name + "'".repeat(r.order - 1)), fn = comp(r.rhs, r.line);
-      if (fn && top !== undefined) fld.eqs.push({ k: top, from: -1, fn });
+      if (fn && top !== undefined) fld.eqs.push({ k: top, from: -1, fn, src: r.rhs });
       for (let j = r.order - 1; j >= 1; j--) {
         const a = fidx.get(r.name + "'".repeat(j - 1)), b = fidx.get(r.name + "'".repeat(j));
         if (a !== undefined && b !== undefined) fld.eqs.push({ k: a, from: b });
@@ -1584,7 +1773,7 @@ function buildModel(T0) {
     });
     fp.helpers.forEach(h => {
       const k = fidx.get(h.name), fn = comp(h.rhs, h.line);
-      if (fn && k !== undefined) fld.helpers.push({ k, fn });
+      if (fn && k !== undefined) fld.helpers.push({ k, fn, src: h.rhs });
     });
   }
 
@@ -1714,192 +1903,711 @@ function rk4(model, t, y, h, s) {
   for (let i = 0; i < n; i++) y[i] += (h / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
 }
 
-const PRESETS = [
+// Each preset is stored exactly like a saved system (the Save / load text), plus an id and a name.
+const PRESET_JSON = [
   {
-    id: 'pendulum', name: 'Damped pendulum',
-    eq: "th'' = -g/L*sin(th) - c*th'\nE = 0.5*L^2*th'^2 + g*L*(1 - cos(th))",
-    params: 'g = 9.81\nL = 1\nc = 0.15',
-    ic: "th = 2.5\nth' = 0",
-    draw: 'bob: L*sin(th), -L*cos(th)',
-    link: true, speed: 1, dt: 0.005, win: 12, trail: 1.5, show: ['th', "th'", 'E']
+    "id": "pendulum",
+    "name": "Damped pendulum",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "th'' = -g/L*sin(th) - c*th'",
+      "E = 0.5*L^2*th'^2 + g*L*(1 - cos(th))"
+    ],
+    "functions": [],
+    "parameters": [
+      "g = 9.81",
+      "L = 1",
+      "c = 0.15"
+    ],
+    "initial": [
+      "th = 2.5",
+      "th' = 0"
+    ],
+    "draw": ["bob: L*sin(th), -L*cos(th)"],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":1,"window":12,"trail":1.5,"joinPoints":true,"show":["th","th'","E"]}
   },
   {
-    id: 'double-pendulum', name: 'Double pendulum',
-    eq: "d = a - b\nden = 2*m1 + m2 - m2*cos(2*d)\na'' = (-g*(2*m1+m2)*sin(a) - m2*g*sin(a-2*b) - 2*sin(d)*m2*(b'^2*l2 + a'^2*l1*cos(d))) / (l1*den)\nb'' = (2*sin(d)*(a'^2*l1*(m1+m2) + g*(m1+m2)*cos(a) + b'^2*l2*m2*cos(d))) / (l2*den)\nT = 0.5*(m1+m2)*l1^2*a'^2 + 0.5*m2*l2^2*b'^2 + m2*l1*l2*a'*b'*cos(d)\nV = -(m1+m2)*g*l1*cos(a) - m2*g*l2*cos(b)\nE = T + V",
-    params: 'g = 9.81\nm1 = 1\nm2 = 1\nl1 = 1\nl2 = 1',
-    ic: "a = 2.2\nb = 2.6\na' = 0\nb' = 0",
-    draw: 'p1: l1*sin(a), -l1*cos(a)\np2: l1*sin(a) + l2*sin(b), -l1*cos(a) - l2*cos(b)',
-    link: true, speed: 1, dt: 0.002, win: 15, trail: 3, show: ['a', 'b', 'E'], phase: ['a', 'b']
+    "id": "double-pendulum",
+    "name": "Double pendulum",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "d = a - b",
+      "den = 2*m1 + m2 - m2*cos(2*d)",
+      "a'' = (-g*(2*m1+m2)*sin(a) - m2*g*sin(a-2*b) - 2*sin(d)*m2*(b'^2*l2 + a'^2*l1*cos(d))) / (l1*den)",
+      "b'' = (2*sin(d)*(a'^2*l1*(m1+m2) + g*(m1+m2)*cos(a) + b'^2*l2*m2*cos(d))) / (l2*den)",
+      "T = 0.5*(m1+m2)*l1^2*a'^2 + 0.5*m2*l2^2*b'^2 + m2*l1*l2*a'*b'*cos(d)",
+      "V = -(m1+m2)*g*l1*cos(a) - m2*g*l2*cos(b)",
+      "E = T + V"
+    ],
+    "functions": [],
+    "parameters": [
+      "g = 9.81",
+      "m1 = 1",
+      "m2 = 1",
+      "l1 = 1",
+      "l2 = 1"
+    ],
+    "initial": [
+      "a = 2.2",
+      "b = 2.6",
+      "a' = 0",
+      "b' = 0"
+    ],
+    "draw": [
+      "p1: l1*sin(a), -l1*cos(a)",
+      "p2: l1*sin(a) + l2*sin(b), -l1*cos(a) - l2*cos(b)"
+    ],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.002,"speed":1,"window":15,"trail":3,"joinPoints":true,"show":["a","b","E"],"phase":["a","b"]}
   },
   {
-    id: 'spring', name: 'Damped spring',
-    eq: "x'' = -k/m*x - c/m*x'\nE = 0.5*m*x'^2 + 0.5*k*x^2",
-    params: 'm = 1\nk = 16\nc = 0.6',
-    ic: "x = 1\nx' = 0",
-    draw: 'mass: x, 0',
-    acts: "action Kick: set x' to 3\naction Pluck: set x to 1; set x' to 0\naction Stiffer: set k to 40",
-    link: true, speed: 1, dt: 0.005, win: 10, trail: 0, show: ['x', "x'", 'E']
+    "id": "spring",
+    "name": "Damped spring",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "x'' = -k/m*x - c/m*x'",
+      "E = 0.5*m*x'^2 + 0.5*k*x^2"
+    ],
+    "functions": [],
+    "parameters": [
+      "m = 1",
+      "k = 16",
+      "c = 0.6"
+    ],
+    "initial": [
+      "x = 1",
+      "x' = 0"
+    ],
+    "draw": ["mass: x, 0"],
+    "actions": [
+      "action Kick: set x' to 3",
+      "action Pluck: set x to 1; set x' to 0",
+      "action Stiffer: set k to 40"
+    ],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":1,"window":10,"trail":0,"joinPoints":true,"show":["x","x'","E"]}
   },
   {
-    id: 'driven-oscillator', name: 'Driven oscillator',
-    eq: "x'' = -w0^2*x - c*x' + F*cos(w*t)",
-    params: 'w0 = 2\nc = 0.3\nF = 1\nw = 1.9',
-    ic: "x = 0\nx' = 0",
-    draw: 'mass: x, 0',
-    link: true, speed: 1, dt: 0.005, win: 40, trail: 0
+    "id": "driven-oscillator",
+    "name": "Driven oscillator",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": ["x'' = -w0^2*x - c*x' + F*cos(w*t)"],
+    "functions": [],
+    "parameters": [
+      "w0 = 2",
+      "c = 0.3",
+      "F = 1",
+      "w = 1.9"
+    ],
+    "initial": [
+      "x = 0",
+      "x' = 0"
+    ],
+    "draw": ["mass: x, 0"],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":1,"window":40,"trail":0,"joinPoints":true}
   },
   {
-    id: 'projectile', name: 'Projectile with drag',
-    eq: "x' = vx\ny' = vy\nvx' = -k/m*hypot(vx, vy)*vx\nvy' = -g - k/m*hypot(vx, vy)*vy\nstop: y < 0",
-    params: 'g = 9.81\nm = 1\nk = 0.02\nv0 = 30\nang = 50',
-    ic: 'x = 0\ny = 0\nvx = v0*cos(ang*pi/180)\nvy = v0*sin(ang*pi/180)',
-    draw: 'ball: x, y',
-    link: false, speed: 1, dt: 0.005, win: 0, trail: 30, show: ['x', 'y', 'vx', 'vy'], phase: ['x', 'y']
+    "id": "projectile",
+    "name": "Projectile with drag",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "x' = vx",
+      "y' = vy",
+      "vx' = -k/m*hypot(vx, vy)*vx",
+      "vy' = -g - k/m*hypot(vx, vy)*vy",
+      "stop: y < 0"
+    ],
+    "functions": [],
+    "parameters": [
+      "g = 9.81",
+      "m = 1",
+      "k = 0.02",
+      "v0 = 30",
+      "ang = 50"
+    ],
+    "initial": [
+      "x = 0",
+      "y = 0",
+      "vx = v0*cos(ang*pi/180)",
+      "vy = v0*sin(ang*pi/180)"
+    ],
+    "draw": ["ball: x, y"],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":1,"window":0,"trail":30,"joinPoints":false,"show":["x","y","vx","vy"],"phase":["x","y"]}
   },
   {
-    id: 'orbit', name: 'Orbit around a star',
-    eq: "r = sqrt(x^2 + y^2)\nx'' = -GM*x/r^3\ny'' = -GM*y/r^3\nE = 0.5*(x'^2 + y'^2) - GM/r\nL = x*y' - y*x'",
-    params: 'GM = 1',
-    ic: "x = 1\ny = 0\nx' = 0\ny' = 0.8",
-    draw: 'planet: x, y\nstar: 0, 0',
-    link: false, speed: 2, dt: 0.005, win: 20, trail: 10, show: ['E', 'L'], phase: ['x', 'y']
+    "id": "orbit",
+    "name": "Orbit around a star",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "r = sqrt(x^2 + y^2)",
+      "x'' = -GM*x/r^3",
+      "y'' = -GM*y/r^3",
+      "E = 0.5*(x'^2 + y'^2) - GM/r",
+      "L = x*y' - y*x'"
+    ],
+    "functions": [],
+    "parameters": ["GM = 1"],
+    "initial": [
+      "x = 1",
+      "y = 0",
+      "x' = 0",
+      "y' = 0.8"
+    ],
+    "draw": [
+      "planet: x, y",
+      "star: 0, 0"
+    ],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":2,"window":20,"trail":10,"joinPoints":false,"show":["E","L"],"phase":["x","y"]}
   },
   {
-    id: 'lorenz', name: 'Lorenz system',
-    eq: "x' = sigma*(y - x)\ny' = x*(rho - z) - y\nz' = x*y - beta*z",
-    params: 'sigma = 10\nrho = 28\nbeta = 8/3',
-    ic: 'x = 1\ny = 1\nz = 1',
-    draw: 'p: x, z',
-    link: false, speed: 2, dt: 0.005, win: 30, trail: 8, phase: ['x', 'z']
+    "id": "lorenz",
+    "name": "Lorenz system",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "x' = sigma*(y - x)",
+      "y' = x*(rho - z) - y",
+      "z' = x*y - beta*z"
+    ],
+    "functions": [],
+    "parameters": [
+      "sigma = 10",
+      "rho = 28",
+      "beta = 8/3"
+    ],
+    "initial": [
+      "x = 1",
+      "y = 1",
+      "z = 1"
+    ],
+    "draw": ["p: x, z"],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":2,"window":30,"trail":8,"joinPoints":false,"phase":["x","z"]}
   },
   {
-    id: 'predator-prey', name: 'Predator and prey',
-    eq: "x' = a*x - b*x*y\ny' = d*x*y - c*y",
-    params: 'a = 1.1\nb = 0.4\nc = 0.4\nd = 0.1',
-    ic: 'x = 10\ny = 10',
-    draw: '',
-    link: false, speed: 2, dt: 0.01, win: 40, trail: 0, phase: ['x', 'y']
+    "id": "predator-prey",
+    "name": "Predator and prey",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "x' = a*x - b*x*y",
+      "y' = d*x*y - c*y"
+    ],
+    "functions": [],
+    "parameters": [
+      "a = 1.1",
+      "b = 0.4",
+      "c = 0.4",
+      "d = 0.1"
+    ],
+    "initial": [
+      "x = 10",
+      "y = 10"
+    ],
+    "draw": [],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.01,"speed":2,"window":40,"trail":0,"joinPoints":false,"phase":["x","y"]}
   },
   {
-    id: 'van-der-pol', name: 'Van der Pol oscillator',
-    eq: "x'' = mu*(1 - x^2)*x' - x",
-    params: 'mu = 2',
-    ic: "x = 0.5\nx' = 0",
-    draw: '',
-    link: false, speed: 2, dt: 0.01, win: 40, trail: 0, phase: ['x', "x'"]
+    "id": "van-der-pol",
+    "name": "Van der Pol oscillator",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": ["x'' = mu*(1 - x^2)*x' - x"],
+    "functions": [],
+    "parameters": ["mu = 2"],
+    "initial": [
+      "x = 0.5",
+      "x' = 0"
+    ],
+    "draw": [],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.01,"speed":2,"window":40,"trail":0,"joinPoints":false,"phase":["x","x'"]}
   },
   {
-    id: 'epidemic', name: 'Epidemic (SIR)',
-    eq: "S' = -beta*S*I/N\nI' = beta*S*I/N - gamma*I\nR' = gamma*I",
-    params: 'beta = 0.5\ngamma = 0.1\nN = 1000',
-    ic: 'S = 990\nI = 10\nR = 0',
-    draw: '',
-    link: false, speed: 20, dt: 0.05, win: 0, trail: 0, phase: ['S', 'I']
+    "id": "epidemic",
+    "name": "Epidemic (SIR)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "S' = -beta*S*I/N",
+      "I' = beta*S*I/N - gamma*I",
+      "R' = gamma*I"
+    ],
+    "functions": [],
+    "parameters": [
+      "beta = 0.5",
+      "gamma = 0.1",
+      "N = 1000"
+    ],
+    "initial": [
+      "S = 990",
+      "I = 10",
+      "R = 0"
+    ],
+    "draw": [],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.05,"speed":20,"window":0,"trail":0,"joinPoints":false,"phase":["S","I"]}
   },
   {
-    id: 'charge-fields', name: 'Charge in E and B fields',
-    eq: "x' = vx\ny' = vy\nvx' = qm*(E_x(x, y) + vy*Bz(x, y))\nvy' = qm*(E_y(x, y) - vx*Bz(x, y))\nKE = 0.5*(vx^2 + vy^2)",
-    funcs: 'Bz(x, y) = B0*(1 + gr*x)\nE(x, y) = (0, E0)',
-    params: 'qm = 1\nB0 = 1.5\ngr = 0.1\nE0 = 0.6',
-    ic: 'x = 0\ny = 0\nvx = 1\nvy = 0',
-    draw: 'charge: x, y\nview: -5, 5, -4, 4',
-    link: false, speed: 2, dt: 0.005, win: 0, trail: 40, show: ['x', 'y', 'KE'], phase: ['x', 'y'], shade: ['Bz']
+    "id": "charge-fields",
+    "name": "Charge in E and B fields",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "x' = vx",
+      "y' = vy",
+      "vx' = qm*(E_x(x, y) + vy*Bz(x, y))",
+      "vy' = qm*(E_y(x, y) - vx*Bz(x, y))",
+      "KE = 0.5*(vx^2 + vy^2)"
+    ],
+    "functions": [
+      "Bz(x, y) = B0*(1 + gr*x)",
+      "E(x, y) = (0, E0)"
+    ],
+    "parameters": [
+      "qm = 1",
+      "B0 = 1.5",
+      "gr = 0.1",
+      "E0 = 0.6"
+    ],
+    "initial": [
+      "x = 0",
+      "y = 0",
+      "vx = 1",
+      "vy = 0"
+    ],
+    "draw": [
+      "charge: x, y",
+      "view: -5, 5, -4, 4"
+    ],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":2,"window":0,"trail":40,"joinPoints":false,"show":["x","y","KE"],"phase":["x","y"],"fields":{"Bz":true}}
   },
   {
-    id: 'sliding-rod', name: 'Sliding rod on rails (motional EMF)',
-    eq: "x'' = (F - B*l*i)/m\ni' = (B*l*x' - R*i)/L\nEMF = B*l*x'\nPdiss = R*i^2\nKE = 0.5*m*x'^2",
-    funcs: 'Bz(x, y) = B',
-    params: 'B = 1\nl = 1.5\nR = 1\nL = 0.2\nm = 1\nF = 0',
-    ic: "x = 0.5\nx' = 5\ni = 0",
-    draw: 'rail1: 0, l/2, 7, l/2\nrail2: 0, -l/2, 7, -l/2\nrod: x, -l/2, x, l/2\nview: -0.5, 7.5, -2, 2',
-    link: false, speed: 1, dt: 0.005, win: 0, trail: 0, show: ["x'", 'i', 'EMF'], phase: ["x'", 'i'], shade: ['Bz']
+    "id": "sliding-rod",
+    "name": "Sliding rod on rails (motional EMF)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "x'' = (F - B*l*i)/m",
+      "i' = (B*l*x' - R*i)/L",
+      "EMF = B*l*x'",
+      "Pdiss = R*i^2",
+      "KE = 0.5*m*x'^2"
+    ],
+    "functions": ["Bz(x, y) = B"],
+    "parameters": [
+      "B = 1",
+      "l = 1.5",
+      "R = 1",
+      "L = 0.2",
+      "m = 1",
+      "F = 0"
+    ],
+    "initial": [
+      "x = 0.5",
+      "x' = 5",
+      "i = 0"
+    ],
+    "draw": [
+      "rail1: 0, l/2, 7, l/2",
+      "rail2: 0, -l/2, 7, -l/2",
+      "rod: x, -l/2, x, l/2",
+      "view: -0.5, 7.5, -2, 2"
+    ],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":1,"window":0,"trail":0,"joinPoints":false,"show":["x'","i","EMF"],"phase":["x'","i"],"fields":{"Bz":true}}
   },
   {
-    id: 'magnet-coil', name: 'Magnet falling through a coil',
-    eq: "z'' = -g + i*dPhi/m\ni' = (-dPhi*z' - R*i)/L\ndPhi = D(Phi(z), z)\nEMF = -dPhi*z'\nEtot = 0.5*m*z'^2 + m*g*z + 0.5*L*i^2\nstop: z < -3.5",
-    funcs: 'Phi(z) = k/(a^2 + z^2)^1.5\nrr(x, y) = sqrt(x^2 + (y - z)^2 + 0.05)\nB(x, y) = (3*s*x*(y - z)/rr(x, y)^5, s*(3*(y - z)^2 - rr(x, y)^2)/rr(x, y)^5)',
-    params: 'g = 2.5\nm = 1\nR = 0.5\nL = 0.2\nk = 2.5\na = 1\ns = 0.3',
-    ic: "z = 2.5\nz' = 0\ni = 0",
-    draw: 'coil: -a, 0, a, 0\nmagnet: 0, z - 0.35, 0, z + 0.35\nview: -3, 3, -3.5, 3.5',
-    link: false, speed: 1, dt: 0.002, win: 8, trail: 0, show: ['z', 'i', 'EMF', 'Etot'], phase: ['z', 'i']
+    "id": "magnet-coil",
+    "name": "Magnet falling through a coil",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "z'' = -g + i*dPhi/m",
+      "i' = (-dPhi*z' - R*i)/L",
+      "dPhi = D(Phi(z), z)",
+      "EMF = -dPhi*z'",
+      "Etot = 0.5*m*z'^2 + m*g*z + 0.5*L*i^2",
+      "stop: z < -3.5"
+    ],
+    "functions": [
+      "Phi(z) = k/(a^2 + z^2)^1.5",
+      "rr(x, y) = sqrt(x^2 + (y - z)^2 + 0.05)",
+      "B(x, y) = (3*s*x*(y - z)/rr(x, y)^5, s*(3*(y - z)^2 - rr(x, y)^2)/rr(x, y)^5)"
+    ],
+    "parameters": [
+      "g = 2.5",
+      "m = 1",
+      "R = 0.5",
+      "L = 0.2",
+      "k = 2.5",
+      "a = 1",
+      "s = 0.3"
+    ],
+    "initial": [
+      "z = 2.5",
+      "z' = 0",
+      "i = 0"
+    ],
+    "draw": [
+      "coil: -a, 0, a, 0",
+      "magnet: 0, z - 0.35, 0, z + 0.35",
+      "view: -3, 3, -3.5, 3.5"
+    ],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.002,"speed":1,"window":8,"trail":0,"joinPoints":false,"show":["z","i","EMF","Etot"],"phase":["z","i"]}
   },
   {
-    id: 'induced-field', name: 'Induced electric field (changing B)',
-    eq: "x' = vx\ny' = vy\nvx' = qm*(Ei_x(x, y) + vy*Bz(x, y))\nvy' = qm*(Ei_y(x, y) - vx*Bz(x, y))\nKE = 0.5*(vx^2 + vy^2)",
-    funcs: 'Bt(a) = B0*sin(w*a)\nBd(a) = D(Bt(a), a)\nBz(x, y) = ifelse(hypot(x, y) < Rs, Bt(t), 0)\nfac(x, y) = ifelse(hypot(x, y) < Rs, 1, Rs^2/(x^2 + y^2 + 0.000001))\nEi(x, y) = (0.5*y*Bd(t)*fac(x, y), -0.5*x*Bd(t)*fac(x, y))',
-    params: 'qm = 1\nB0 = 2\nw = 1.2\nRs = 2.5',
-    ic: 'x = 1.5\ny = 0\nvx = 0\nvy = 0',
-    draw: 'charge: x, y\nview: -4, 4, -3, 3',
-    link: false, speed: 1, dt: 0.005, win: 0, trail: 12, show: ['x', 'y', 'KE'], phase: ['x', 'y'], shade: ['Bz']
+    "id": "induced-field",
+    "name": "Induced electric field (changing B)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "x' = vx",
+      "y' = vy",
+      "vx' = qm*(Ei_x(x, y) + vy*Bz(x, y))",
+      "vy' = qm*(Ei_y(x, y) - vx*Bz(x, y))",
+      "KE = 0.5*(vx^2 + vy^2)"
+    ],
+    "functions": [
+      "Bt(a) = B0*sin(w*a)",
+      "Bd(a) = D(Bt(a), a)",
+      "Bz(x, y) = ifelse(hypot(x, y) < Rs, Bt(t), 0)",
+      "fac(x, y) = ifelse(hypot(x, y) < Rs, 1, Rs^2/(x^2 + y^2 + 0.000001))",
+      "Ei(x, y) = (0.5*y*Bd(t)*fac(x, y), -0.5*x*Bd(t)*fac(x, y))"
+    ],
+    "parameters": [
+      "qm = 1",
+      "B0 = 2",
+      "w = 1.2",
+      "Rs = 2.5"
+    ],
+    "initial": [
+      "x = 1.5",
+      "y = 0",
+      "vx = 0",
+      "vy = 0"
+    ],
+    "draw": [
+      "charge: x, y",
+      "view: -4, 4, -3, 3"
+    ],
+    "actions": [],
+    "fields": [],
+    "settings": {"dt":0.005,"speed":1,"window":0,"trail":12,"joinPoints":false,"show":["x","y","KE"],"phase":["x","y"],"fields":{"Bz":true}}
   },
   {
-    id: 'bouncing-ball', name: 'Bouncing ball (vectors)',
-    eq: "r'' = grav - drag*r'\nE = 0.5*dot(r', r') - dot(grav, r)",
-    params: 'grav = (0, -9.8)\ndrag = 0.05\nrest = 0.85',
-    ic: "r = (-4, 4)\nr' = (2.5, 0)",
-    draw: "ball: r\nfloor: -5, 0, 5, 0\narrow v: r, r'*0.4\nview: -5.5, 5.5, -0.8, 6",
-    acts: "when r.y < 0 and r'.y < 0: set r' to (r'.x, -rest*r'.y); set r to (r.x, 0)\nwhen r.x > 5 and r'.x > 0: set r'.x to -rest*r'.x\nwhen r.x < -5 and r'.x < 0: set r'.x to -rest*r'.x\naction Kick: set r' to r' + (0, 6)",
-    link: false, speed: 1, dt: 0.002, win: 10, trail: 6, show: ['r_y', 'E'], phase: ['r_x', 'r_y']
+    "id": "bouncing-ball",
+    "name": "Bouncing ball (vectors)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "r'' = grav - drag*r'",
+      "E = 0.5*dot(r', r') - dot(grav, r)"
+    ],
+    "functions": [],
+    "parameters": [
+      "grav = (0, -9.8)",
+      "drag = 0.05",
+      "rest = 0.85"
+    ],
+    "initial": [
+      "r = (-4, 4)",
+      "r' = (2.5, 0)"
+    ],
+    "draw": [
+      "ball: r",
+      "floor: -5, 0, 5, 0",
+      "arrow v: r, r'*0.4",
+      "view: -5.5, 5.5, -0.8, 6"
+    ],
+    "actions": [
+      "when r.y < 0 and r'.y < 0: set r' to (r'.x, -rest*r'.y); set r to (r.x, 0)",
+      "when r.x > 5 and r'.x > 0: set r'.x to -rest*r'.x",
+      "when r.x < -5 and r'.x < 0: set r'.x to -rest*r'.x",
+      "action Kick: set r' to r' + (0, 6)"
+    ],
+    "fields": [],
+    "settings": {"dt":0.002,"speed":1,"window":10,"trail":6,"joinPoints":false,"show":["r_y","E"],"phase":["r_x","r_y"]}
   },
   {
-    id: 'thermostat', name: 'Thermostat with conditions',
-    eq: "T' = -k*(T - Tout) + P*heater",
-    params: 'k = 0.1\nTout = 5\nP = 3\nheater = 1\nlow = 18\nhigh = 22',
-    ic: 'T = 15',
-    draw: 'temp: 0, T',
-    acts: 'when T > high: set heater to 0\nwhen T < low: set heater to 1\naction Open window: set Tout to -5\naction Close window: set Tout to 5',
-    link: false, speed: 4, dt: 0.01, win: 80, trail: 0, show: ['T', 'heater']
+    "id": "thermostat",
+    "name": "Thermostat with conditions",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": ["T' = -k*(T - Tout) + P*heater"],
+    "functions": [],
+    "parameters": [
+      "k = 0.1",
+      "Tout = 5",
+      "P = 3",
+      "heater = 1",
+      "low = 18",
+      "high = 22"
+    ],
+    "initial": ["T = 15"],
+    "draw": ["temp: 0, T"],
+    "actions": [
+      "when T > high: set heater to 0",
+      "when T < low: set heater to 1",
+      "action Open window: set Tout to -5",
+      "action Close window: set Tout to 5"
+    ],
+    "fields": [],
+    "settings": {"dt":0.01,"speed":4,"window":80,"trail":0,"joinPoints":false,"show":["T","heater"]}
   },
   {
-    id: 'maxwell-wave', name: 'Maxwell: radiating current (fields)',
-    eq: 'W = fsum(U)',
-    fields: "grid 72 x 72 on -6..6, -6..6\nboundary absorb 10 6\nvector E, B\nJ = (0, 0, I0*sin(w*t)*exp(-(x^2 + y^2)/s2))\nB' = -curl(E)\nE' = c^2*curl(B) - J\nU = 0.5*(dot(E, E) + c^2*dot(B, B))",
-    params: 'c = 1\nw = 5\nI0 = 6\ns2 = 0.05',
-    ic: '',
-    link: false, speed: 1, dt: 0.05, win: 30, trail: 0, show: ['W'], fv: { show: 'E_z', arrows: false, range: 0 }
+    "id": "maxwell-wave",
+    "name": "Maxwell: radiating current (fields)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": ["W = fsum(U)"],
+    "functions": [],
+    "parameters": [
+      "c = 1",
+      "w = 5",
+      "I0 = 6",
+      "s2 = 0.05"
+    ],
+    "initial": [],
+    "draw": [],
+    "actions": [],
+    "fields": [
+      "grid 72 x 72 on -6..6, -6..6",
+      "boundary absorb 10 6",
+      "vector E, B",
+      "J = (0, 0, I0*sin(w*t)*exp(-(x^2 + y^2)/s2))",
+      "B' = -curl(E)",
+      "E' = c^2*curl(B) - J",
+      "U = 0.5*(dot(E, E) + c^2*dot(B, B))"
+    ],
+    "settings": {"dt":0.05,"speed":1,"window":30,"trail":0,"joinPoints":false,"fieldView":{"show":"E_z","arrows":false,"range":0},"show":["W"]}
   },
   {
-    id: 'cavity', name: 'Maxwell: pulse in a cavity (fields)',
-    eq: 'W = fsum(U)',
-    fields: "grid 64 x 64 on -4..4, -4..4\nboundary wall\nvector E, B\ninit E = (0, 0, exp(-((x - 1)^2 + (y + 0.5)^2)/0.3))\nB' = -curl(E)\nE' = c^2*curl(B)\nU = 0.5*(dot(E, E) + c^2*dot(B, B))",
-    params: 'c = 1',
-    ic: '',
-    link: false, speed: 1, dt: 0.05, win: 30, trail: 0, show: ['W'], fv: { show: 'E_z', arrows: false, range: 0 }
+    "id": "cavity",
+    "name": "Maxwell: pulse in a cavity (fields)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": ["W = fsum(U)"],
+    "functions": [],
+    "parameters": ["c = 1"],
+    "initial": [],
+    "draw": [],
+    "actions": [],
+    "fields": [
+      "grid 64 x 64 on -4..4, -4..4",
+      "boundary wall",
+      "vector E, B",
+      "init E = (0, 0, exp(-((x - 1)^2 + (y + 0.5)^2)/0.3))",
+      "B' = -curl(E)",
+      "E' = c^2*curl(B)",
+      "U = 0.5*(dot(E, E) + c^2*dot(B, B))"
+    ],
+    "settings": {"dt":0.05,"speed":1,"window":30,"trail":0,"joinPoints":false,"fieldView":{"show":"E_z","arrows":false,"range":0},"show":["W"]}
   },
   {
-    id: 'wave-particle', name: 'Charge in an electromagnetic wave (fields + particle)',
-    eq: "r' = v\nv' = qm*(sample(E, r.x, r.y) + cross(v, sample(B, r.x, r.y)))\nW = fsum(U)",
-    fields: "grid 80 x 48 on -6..6, -3.6..3.6\nboundary absorb 10 6\nvector E, B\nJ = (0, 0, I0*sin(w*t)*exp(-(x + 5)^2/0.04))\nB' = -curl(E)\nE' = c^2*curl(B) - J\nU = 0.5*(dot(E, E) + c^2*dot(B, B))",
-    params: 'c = 1\nw = 4\nI0 = 8\nqm = 0.4',
-    ic: 'r = (-1, 0.5, 0)\nv = (0, 0, 0)',
-    draw: 'charge: r',
-    link: false, speed: 1, dt: 0.05, win: 30, trail: 10, show: ['r_x', 'r_z'], phase: ['r_x', 'r_z'], fv: { show: 'E_z', arrows: false, range: 0 }
+    "id": "wave-particle",
+    "name": "Charge in an electromagnetic wave (fields + particle)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "r' = v",
+      "v' = qm*(sample(E, r.x, r.y) + cross(v, sample(B, r.x, r.y)))",
+      "W = fsum(U)"
+    ],
+    "functions": [],
+    "parameters": [
+      "c = 1",
+      "w = 4",
+      "I0 = 8",
+      "qm = 0.4"
+    ],
+    "initial": [
+      "r = (-1, 0.5, 0)",
+      "v = (0, 0, 0)"
+    ],
+    "draw": ["charge: r"],
+    "actions": [],
+    "fields": [
+      "grid 80 x 48 on -6..6, -3.6..3.6",
+      "boundary absorb 10 6",
+      "vector E, B",
+      "J = (0, 0, I0*sin(w*t)*exp(-(x + 5)^2/0.04))",
+      "B' = -curl(E)",
+      "E' = c^2*curl(B) - J",
+      "U = 0.5*(dot(E, E) + c^2*dot(B, B))"
+    ],
+    "settings": {"dt":0.05,"speed":1,"window":30,"trail":10,"joinPoints":false,"fieldView":{"show":"E_z","arrows":false,"range":0},"show":["r_x","r_z"],"phase":["r_x","r_z"]}
   },
   {
-    id: 'poisson', name: 'Electrostatics: potential, field, divergence (fields)',
-    eq: 'W = fsum(u)',
-    fields: "grid 64 x 64 on -4..4, -4..4\nboundary reflect\nscalar phi\nrho = q*(exp(-((x - 1.5)^2 + y^2)/0.1) - exp(-((x + 1.5)^2 + y^2)/0.1))\nE = -grad(phi)\nu = 0.5*dot(E, E)\nphi' = lap(phi) + rho",
-    params: 'q = 1',
-    ic: '',
-    link: false, speed: 4, dt: 0.003, win: 0, trail: 0, show: ['W'], fv: { show: '|E|', arrows: true, range: 0 }
+    "id": "poisson",
+    "name": "Electrostatics: potential, field, divergence (fields)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": ["W = fsum(u)"],
+    "functions": [],
+    "parameters": ["q = 1"],
+    "initial": [],
+    "draw": [],
+    "actions": [],
+    "fields": [
+      "grid 64 x 64 on -4..4, -4..4",
+      "boundary reflect",
+      "scalar phi",
+      "rho = q*(exp(-((x - 1.5)^2 + y^2)/0.1) - exp(-((x + 1.5)^2 + y^2)/0.1))",
+      "E = -grad(phi)",
+      "u = 0.5*dot(E, E)",
+      "phi' = lap(phi) + rho"
+    ],
+    "settings": {"dt":0.003,"speed":4,"window":0,"trail":0,"joinPoints":false,"fieldView":{"show":"|E|","arrows":true,"range":0},"show":["W"]}
   },
   {
-    id: 'convection-current', name: 'Thermodynamics: Convection currents and fluid temperature (fields)',
-    eq: "A1' = sample(v, A1.x, A1.y)\nA2' = sample(v, A2.x, A2.y)\nA3' = sample(v, A3.x, A3.y)\nA4' = sample(v, A4.x, A4.y)\nA5' = sample(v, A5.x, A5.y) \nA6' = sample(v, A6.x, A6.y)\nA7' = sample(v, A7.x, A7.y)\n\nT = sample(b, A1.x, A1.y)",
+    "id": "convection",
+    "name": "Thermodynamics: convection currents and fluid physics (fields)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "A1' = sample(v, A1.x, A1.y)",
+      "A2' = sample(v, A2.x, A2.y)",
+      "A3' = sample(v, A3.x, A3.y)",
+      "A4' = sample(v, A4.x, A4.y)",
+      "A5' = sample(v, A5.x, A5.y)",
+      "A6' = sample(v, A6.x, A6.y)",
+      "A7' = sample(v, A7.x, A7.y)",
+      "",
+      "T = sample(b, A1.x, A1.y)"
+    ],
+    "functions": [],
+    "parameters": [
+      "kappa = 0.075",
+      "nu = 1",
+      "epsilon = 1"
+    ],
+    "initial": [
+      "A1 = (0, 1)",
+      "A2 = (1, 1)",
+      "A3 = (-1, 1)",
+      "A4 = (2, 1)",
+      "A5 = (-2, 1)",
+      "A6 = (3, 0)",
+      "A7 = (-3, 0)"
+    ],
+    "draw": [
+      "1: A1",
+      "2: A2",
+      "3: A3",
+      "2: A2",
+      "3: A3",
+      "4: A4",
+      "5: A5",
+      "6: A6",
+      "7: A7"
+    ],
+    "actions": [
+      "when A1.y < -10: set A1.y to 10",
+      "when A2.y < -10: set A2.y to 10",
+      "when A3.y < -10: set A3.y to 10",
+      "when A4.y < -10: set A4.y to 10",
+      "when A5.y < -10: set A5.y to 10",
+      "when A6.y < -10: set A6.y to 10",
+      "when A7.y < -10: set A7.y to 10",
+      "",
+      "when A1.y > 10: set A1.y to -10",
+      "when A2.y > 10: set A2.y to -10",
+      "when A3.y > 10: set A3.y to -10",
+      "when A4.y > 10: set A4.y to -10",
+      "when A5.y > 10: set A5.y to -10",
+      "when A6.y > 10: set A6.y to -10",
+      "when A7.y > 10: set A7.y to -10",
+      "",
+      "when A1.x < -10: set A1.x to 10",
+      "when A2.x < -10: set A2.x to 10",
+      "when A3.x < -10: set A3.x to 10",
+      "when A4.x < -10: set A4.x to 10",
+      "when A5.x < -10: set A5.x to 10",
+      "when A6.x < -10: set A6.x to 10",
+      "when A7.x < -10: set A7.x to 10",
+      "",
+      "when A1.x > 10: set A1.x to -10",
+      "when A2.x > 10: set A2.x to -10",
+      "when A3.x > 10: set A3.x to -10",
+      "when A4.x > 10: set A4.x to -10",
+      "when A5.x > 10: set A5.x to -10",
+      "when A6.x > 10: set A6.x to -10",
+      "when A7.x > 10: set A7.x to -10"
+    ],
+    "fields": [
+      "grid 100 x 100 on -10..10, -10..10",
+      "boundary wall",
+      "scalar b[2], omega[2], psi[2]",
+      "init psi = 1",
+      "init omega = 0",
+      "init b = -(-2/(abs((x,y + 4))+1)^3 + 1/(abs((x + 2,y - 4))+1)^3 + 1/(abs((x - 2,y - 4))+1)^3)/0.005",
+      "",
+      "domega/dt = nu*lap(omega) - Dy(psi) * Dx(omega) + Dx(psi)*Dy(omega) + Dx(b)",
+      "",
+      "dpsi/dt = (lap(psi) + omega)/epsilon",
+      "",
+      "db/dt = kappa*lap(b) - (Dy(psi)*Dx(b) - Dx(psi)*Dy(b))",
+      "",
+      "",
+      "v = (Dy(psi), -Dx(psi))"
+    ],
+    "settings": {"dt":0.005,"speed":1,"window":0,"trail":0,"joinPoints":false,"view":"auto","cameraBox":null,"fieldView":{"show":"b","arrows":true,"range":0},"show":["T"],"phase":["t","A1_x"],"fields":{}}
+  }
+];
 
-    fields: "grid 100 x 100 on -10..10, -10..10\nboundary wall\nscalar b[2], omega[2], psi[2]\ninit psi = 1\ninit omega = 0\ninit b = -(-2/(abs((x,y + 4))+1)^3 + 1/(abs((x + 2,y - 4))+1)^3 + 1/(abs((x - 2,y - 4))+1)^3)/0.005\n\ndomega/dt = nu*lap(omega) - Dy(psi) * Dx(omega) + Dx(psi)*Dy(omega) + Dx(b)\n\ndpsi/dt = (lap(psi) + omega)/epsilon\n\ndb/dt = kappa*lap(b) - (Dy(psi)*Dx(b) - Dx(psi)*Dy(b))\n\n\nv = (Dy(psi), -Dx(psi))",
-    params: "kappa = 0.075\nnu = 1\nepsilon = 1",
-    ic: 'A1 = (0, 1)\nA2 = (1, 1)\nA3 = (-1, 1)\nA4 = (2, 1)\nA5 = (-2, 1)\nA6 = (3, 0)\nA7 = (-3, 0)',
-    draw: "1: A1\n2: A2\n3: A3\n2: A2\n3: A3\n4: A4\n5: A5\n6: A6\n7: A7",
-    acts: "when A1.y < -10: set A1.y to 10\nwhen A2.y < -10: set A2.y to 10\nwhen A3.y < -10: set A3.y to 10\nwhen A4.y < -10: set A4.y to 10\nwhen A5.y < -10: set A5.y to 10\nwhen A6.y < -10: set A6.y to 10\nwhen A7.y < -10: set A7.y to 10\n\nwhen A1.y > 10: set A1.y to -10\nwhen A2.y > 10: set A2.y to -10\nwhen A3.y > 10: set A3.y to -10\nwhen A4.y > 10: set A4.y to -10\nwhen A5.y > 10: set A5.y to -10\nwhen A6.y > 10: set A6.y to -10\nwhen A7.y > 10: set A7.y to -10\n\nwhen A1.x < -10: set A1.x to 10\nwhen A2.x < -10: set A2.x to 10\nwhen A3.x < -10: set A3.x to 10\nwhen A4.x < -10: set A4.x to 10\nwhen A5.x < -10: set A5.x to 10\nwhen A6.x < -10: set A6.x to 10\nwhen A7.x < -10: set A7.x to 10\n\nwhen A1.x > 10: set A1.x to -10\nwhen A2.x > 10: set A2.x to -10\nwhen A3.x > 10: set A3.x to -10\nwhen A4.x > 10: set A4.x to -10\nwhen A5.x > 10: set A5.x to -10\nwhen A6.x > 10: set A6.x to -10\nwhen A7.x > 10: set A7.x to -10",
-    link: false, speed: 1, dt: 0.005, win: 0, trail: 0, show: ['T'], fv: { show: 'b', arrows: true, range: 0 }
-  },
-];// ---------- LaTeX typesetting ----------
+const num = (v, d) => (Number.isFinite(+v) && v !== null && v !== '' ? +v : d);
+const asText = v => (Array.isArray(v) ? v.join('\n') : (typeof v === 'string' ? v : ''));
+// Turns a saved system (the JSON of Save / load, or an entry of PRESET_JSON) into the object the interface loads.
+function presetFromSaved(o) {
+  const st = o.settings || {};
+  return {
+    id: typeof o.id === 'string' ? o.id : 'custom', name: o.name,
+    eq: asText(o.equations), funcs: asText(o.functions), params: asText(o.parameters), ic: asText(o.initial), draw: asText(o.draw), acts: asText(o.actions), fields: asText(o.fields),
+    fv: st.fieldView && typeof st.fieldView === 'object' ? st.fieldView : null,
+    link: !!st.joinPoints, speed: num(st.speed, 1), dt: Math.max(1e-5, num(st.dt, 0.005)), win: Math.max(0, num(st.window, 10)), trail: Math.max(0, num(st.trail, 2)),
+    show: Array.isArray(st.show) && st.show.length ? st.show : null, phase: Array.isArray(st.phase) && st.phase[0] ? st.phase : null,
+    chips: st.fields && typeof st.fields === 'object' ? st.fields : null,
+    tex: st.typeset && typeof st.typeset === 'object' ? st.typeset : null,
+    view: ['auto', 'locked', 'free'].includes(st.view) ? st.view : null,
+    camBox: Array.isArray(st.cameraBox) && st.cameraBox.length === 4 && st.cameraBox.every(Number.isFinite) ? st.cameraBox : null
+  };
+}
+const PRESETS = PRESET_JSON.map(presetFromSaved);
+// ---------- LaTeX typesetting ----------
 const GREEK = {};
 ('alpha beta gamma delta epsilon varepsilon zeta eta theta vartheta iota kappa lambda mu nu xi pi rho sigma tau phi varphi chi psi omega ' +
  'Gamma Delta Theta Lambda Xi Pi Sigma Phi Psi Omega').split(' ').forEach(n => { GREEK[n] = '\\' + n; });
 GREEK.th = '\\theta'; GREEK.ph = '\\phi'; GREEK.om = '\\omega';
 let TEXDIFF = null;
+const TEX_DEF = { vec: 'arrow', norm: 'dbl', pd: 'frac', lap: 'nabla' };
+let TEXO = TEX_DEF, TEXVEC = new Map();
+const VEC_FNS = new Set(['grad', 'curl', 'cross', 'unit', 'perp', 'rot', 'proj']);
 const CONST_TEX = { pi: '\\pi', e: '\\mathrm{e}', tau: '\\tau' };
 const TRIG = new Set(['sin', 'cos', 'tan', 'sinh', 'cosh', 'tanh']);
 const FN_TEX = {
@@ -1912,18 +2620,19 @@ const wrapP = (r, need) => (r.p < need ? paren(r.s) : r.s);
 const escU = s => s.replace(/_/g, '\\_');
 const lenOf = s => Array.from(s).length;
 
-function nameTex(n) {
+function nameTex(n, nb) {
   let base = n, sub = '';
   const u = n.indexOf('_');
   if (u > 0 && u < n.length - 1) { base = n.slice(0, u); sub = n.slice(u + 1); }
   else { const m = /^(\D+?)(\d+)$/u.exec(n); if (m) { base = m[1]; sub = m[2]; } }
-  const b = has(GREEK, base) ? GREEK[base] : (lenOf(base) === 1 && base !== '_' ? base : '\\mathit{' + escU(base) + '}');
+  let b = has(GREEK, base) ? GREEK[base] : (lenOf(base) === 1 && base !== '_' ? base : '\\mathit{' + escU(base) + '}');
+  if (!nb && TEXVEC.has(n)) b = TEXO.vec === 'bold' ? (b.startsWith('\\mathit{') ? '\\mathbf{' + b.slice(8) : b.startsWith('\\') ? '\\vec{' + b + '}' : '\\mathbf{' + b + '}') : '\\vec{' + b + '}';
   if (!sub) return b;
   const s = has(GREEK, sub) ? GREEK[sub] : (/^\d+$/.test(sub) || lenOf(sub) === 1 ? sub : '\\mathrm{' + escU(sub) + '}');
   return b + '_{' + s + '}';
 }
-function idTex(raw, lei) {
-  const m = /^(.*?)('*)$/u.exec(raw), b = nameTex(m[1]), k = m[2].length;
+function idTex(raw, lei, nb) {
+  const m = /^(.*?)('*)$/u.exec(raw), b = nameTex(m[1], nb), k = m[2].length;
   if (!k) return { s: b, p: 5 };
   if (lei) return { s: '\\frac{' + (k === 1 ? 'd' : 'd^{' + k + '}') + b + '}{d' + lei + (k === 1 ? '' : '^{' + k + '}') + '}', p: 2.5 };
   if (k === 1) return { s: '\\dot{' + b + '}', p: 5 };
@@ -1941,7 +2650,7 @@ function numTex(s) {
 }
 
 function parseAst(src) {
-  const toks = tokenize(src);
+  const toks = tokenize(src.replace(/([\p{L}\p{N}_]+'*)\.([xyz])(?![\p{L}\p{N}_])/gu, '__comp($1, $2)'));
   if (!toks.length) throw new Error('Empty expression');
   let p = 0;
   const isOp = v => p < toks.length && toks[p].t === 'op' && toks[p].v === v;
@@ -1983,6 +2692,7 @@ function parseAst(src) {
         const args = [];
         if (!isOp(')')) { args.push(cmp()); while (isOp(',')) { p++; args.push(cmp()); } }
         need(')');
+        if (tk.v === '__comp' && args.length === 2) return { k: 'comp', e: args[0], c: args[1].name };
         if (tk.v === 'D' && args.length === 2 && args[1].k === 'id') return { k: 'D', e: args[0], v: args[1] };
         if (tk.v === 'integral' && (args.length === 4 || args.length === 5) && args[1].k === 'id') return { k: 'int', e: args[0], v: args[1], a: args[2], b: args[3] };
         if (/^D(x|y|xx|yy)$/.test(tk.v) && args.length === 1) return { k: 'pd', e: args[0], v: tk.v.slice(1) };
@@ -1990,7 +2700,11 @@ function parseAst(src) {
       }
       return { k: 'id', name: tk.v };
     }
-    if (tk.v === '(') { const a = cmp(); need(')'); return a; }
+    if (tk.v === '(') {
+      const a = cmp();
+      if (isOp(',')) { const c = [a]; while (isOp(',')) { p++; c.push(cmp()); } need(')'); return { k: 'vec', c }; }
+      need(')'); return a;
+    }
     throw new Error("Unexpected '" + tk.s + "'");
   }
   const r = cmp();
@@ -1998,6 +2712,25 @@ function parseAst(src) {
   return r;
 }
 
+function isV(n) {
+  switch (n.k) {
+    case 'vec': return true;
+    case 'id': return TEXVEC.has(n.name.replace(/'+$/, ''));
+    case 'neg': return isV(n.a);
+    case 'bin': return n.op === '+' || n.op === '-' || n.op === '*' ? isV(n.a) || isV(n.b) : n.op === '/' ? isV(n.a) : false;
+    case 'call': return VEC_FNS.has(n.f) || (n.user && TEXVEC.has(n.f)) || (n.f === 'ifelse' && n.args.length > 1 && isV(n.args[1])) || (n.f === 'sample' && isV(n.args[0]));
+    case 'D': case 'pd': return isV(n.e);
+  }
+  return false;
+}
+const normTex = x => (TEXO.norm === 'sgl' ? '\\left|' + x + '\\right|' : '\\left\\lVert ' + x + '\\right\\rVert');
+// a partial derivative of e (already typeset as r) with respect to the typeset variable ax, of order ord
+function pdTex(r, ax, ord) {
+  if (TEXO.pd === 'sub') return { s: '\\partial_{' + ax + '}' + (ord > 1 ? '^{' + ord + '}' : '') + '\\,' + wrapP(r, 4), p: 2.5 };
+  const o = ord > 1 ? '^{' + ord + '}' : '';
+  if (r.p >= 4) return { s: '\\frac{\\partial' + o + ' ' + r.s + '}{\\partial ' + ax + o + '}', p: 2.5 };
+  return { s: '\\frac{\\partial' + o + '}{\\partial ' + ax + o + '}' + paren(r.s), p: 2 };
+}
 function parenArg(r, node) { return (node.k === 'num' || node.k === 'id') && r.p === 5 ? '(' + r.s + ')' : paren(r.s); }
 function powTex(n, lei) {
   const a = n.a;
@@ -2010,6 +2743,32 @@ function powTex(n, lei) {
 }
 function callTex(n, lei) {
   const f = n.f, A = n.args.map(a => texOf(a, lei)), list = A.map(x => x.s).join(',\\ ');
+  const w5 = i => wrapP(A[i], 5), nA = n.args.length;
+  if (nA === 1 && (f === 'grad' || f === 'div' || f === 'curl' || f === 'lap' || f === 'unit' || f === 'perp' || f === 'norm' || f === 'mag')) {
+    switch (f) {
+      case 'grad': return { s: '\\nabla\\,' + w5(0), p: 4 };
+      case 'div': return { s: '\\nabla\\cdot ' + w5(0), p: 2.5 };
+      case 'curl': return { s: '\\nabla\\times ' + w5(0), p: 2.5 };
+      case 'lap':
+        if (TEXO.lap === 'delta') return { s: '\\Delta\\,' + w5(0), p: 4 };
+        if (TEXO.lap === 'sum') return { s: pdTex(A[0], 'x', 2).s + ' + ' + pdTex(A[0], 'y', 2).s, p: 1 };
+        return { s: '\\nabla^{2}\\,' + w5(0), p: 4 };
+      case 'unit': return n.args[0].k === 'id' ? { s: '\\hat{' + A[0].s + '}', p: 5 } : { s: '\\frac{' + A[0].s + '}{' + normTex(A[0].s) + '}', p: 2.5 };
+      case 'perp': return { s: wrapP(A[0], 5) + '^{\\perp}', p: 4 };
+      default: return { s: normTex(A[0].s), p: 5 };
+    }
+  }
+  if (nA === 2 && (f === 'dot' || f === 'cross')) {
+    const r2 = x => (x.p === 3 ? paren(x.s) : wrapP(x, 2));
+    return { s: r2(A[0]) + (f === 'dot' ? ' \\cdot ' : ' \\times ') + r2(A[1]), p: 2 };
+  }
+  if (nA === 2 && f === 'proj') return { s: '\\operatorname{proj}_{' + A[1].s + '}\\,' + w5(0), p: 4 };
+  if (nA === 2 && f === 'rot') return { s: '\\operatorname{R}\\left(' + A[1].s + '\\right)\\,' + w5(0), p: 4 };
+  if (nA === 2 && f === 'angle') return { s: '\\angle' + paren(list), p: 5 };
+  if (nA === 3 && f === 'sample') return { s: A[0].s + paren(A[1].s + ',\\ ' + A[2].s), p: 5 };
+  if (nA === 1 && f === 'fsum') return { s: '\\iint ' + wrapP(A[0], 2) + '\\,\\mathrm{d}A', p: 1.5 };
+  if (nA === 1 && f === 'fmax') return { s: '\\max_{\\Omega}' + paren(A[0].s), p: 5 };
+  if (f === 'abs' && nA === 1 && isV(n.args[0])) return { s: normTex(A[0].s), p: 5 };
   if (n.user) return { s: nameTex(f) + (A.length === 1 ? parenArg(A[0], n.args[0]) : paren(list)), p: 5 };
   switch (f) {
     case 'sqrt': return { s: '\\sqrt{' + A[0].s + '}', p: 5 };
@@ -2032,13 +2791,15 @@ function texOf(n, lei) {
   switch (n.k) {
     case 'num': return numTex(n.s);
     case 'pd': {
-      const e = texOf(n.e, lei), ax = n.v[0];
-      return { s: '\\partial_{' + ax + '}' + (n.v.length > 1 ? '^{2}' : '') + '\\,' + wrapP(e, 4), p: 2.5 };
+      return pdTex(texOf(n.e, lei), n.v[0], n.v.length);
+    }
+    case 'vec': return { s: '\\begin{pmatrix}' + n.c.map(c => texOf(c, lei).s).join(' \\\\ ') + '\\end{pmatrix}', p: 5 };
+    case 'comp': {
+      const b = n.e.k === 'id' ? idTex(n.e.name, lei, true) : texOf(n.e, lei);
+      return { s: (b.p < 5 ? paren(b.s) : '{' + b.s + '}') + '_{' + n.c + '}', p: 5 };
     }
     case 'D': {
-      const e = texOf(n.e, lei), v = texOf(n.v, lei);
-      if (n.e.k === 'call') return { s: '\\frac{\\partial ' + e.s + '}{\\partial ' + v.s + '}', p: 2.5 };
-      return { s: '\\frac{\\partial}{\\partial ' + v.s + '}' + paren(e.s), p: 2 };
+      return pdTex(texOf(n.e, lei), texOf(n.v, lei).s, 1);
     }
     case 'int': {
       const e = texOf(n.e, lei), a = texOf(n.a, lei), b = texOf(n.b, lei), v = texOf(n.v, lei);
@@ -2081,17 +2842,30 @@ function texOf(n, lei) {
 }
 
 // Returns the typeset sections plus an align* block that can be pasted into a LaTeX document.
-function texModel(T0, leiFlag) {
-  const T = expandAll(T0).T;
+function texModel(T0, leiFlag, optIn) {
+  const opts = Object.assign({}, TEX_DEF, optIn || {});
+  const xa = expandAll(T0), compact = opts.vec !== 'comp', hide = new Set(opts.hide || []);
+  const T = compact ? T0 : xa.T;
+  TEXO = opts; TEXVEC = new Map(compact ? xa.vecs : []);
+  if (compact) for (const L of cleanLines(T0.fields || '')) {
+    const m = /^vector\s+(.+)$/i.exec(L.s);
+    if (m) m[1].split(/[\s,]+/).filter(w => w && !/^\d+$/.test(w)).forEach(w => TEXVEC.set(w, 2));
+  }
   const attempt = fn => { try { return fn(); } catch (e) { return null; } };
   const di = detectInd(T.eq), ind = di.ind, indTex = nameTex(ind);
   const lei = (leiFlag || ind !== 't') ? indTex : false;
   const expr = s => attempt(() => texOf(parseAst(s), lei));
   const eqs = [], helpers = [], stops = [], fnItems = [], params = [], ics = [], draws = [], implicit = [], actItems = [], fieldItems = [];
-  const item = (lhs, rhs) => ({ lhs, rhs, disp: lhs + ' = ' + rhs, src: lhs + ' &= ' + rhs });
-  const text = s => ({ disp: s, src: s });
+  let curRaw = '';
+  const item = (lhs, rhs) => ({ lhs, rhs, disp: lhs + ' = ' + rhs, src: lhs + ' &= ' + rhs, raw: curRaw });
+  const text = s => ({ disp: s, src: s, raw: curRaw });
   const odeNames = new Set();
 
+  if (compact) for (const L of cleanLines(T.funcs || '')) {
+    const k = L.s.indexOf('='), m = k > 0 && RE_FDEF.exec(L.s.slice(0, k).trim());
+    const ast = m && attempt(() => parseAst(L.s.slice(k + 1).trim()));
+    if (ast && isV(ast)) TEXVEC.set(m[1], 2);
+  }
   const rows = [];
   for (const L of cleanLines(T.eq)) {
     const sm = /^stop\s*:\s*(.+)$/i.exec(L.s);
@@ -2108,6 +2882,7 @@ function texModel(T0, leiFlag) {
   TEXDIFF = new Map([['d' + ind, indTex]].concat(imp.map(q => ['d' + q, nameTex(q)])));
   try {
     for (const w of rows) {
+      curRaw = w.stop ? 'stop: ' + w.stop : w.l + ' = ' + w.r;
       if (w.stop) { const r = expr(w.stop); if (r) stops.push(text('\\text{stop when } ' + r.s)); continue; }
       const r = expr(w.r);
       if (!r) continue;
@@ -2118,18 +2893,23 @@ function texModel(T0, leiFlag) {
       else if (w.lhs) helpers.push(item(nameTex(w.lhs.name), r.s));
     }
     for (const L of cleanLines(T.funcs || '')) {
+      curRaw = L.s;
       const k = L.s.indexOf('=');
       if (k < 0) continue;
       const m = RE_FDEF.exec(L.s.slice(0, k).trim());
       if (!m) continue;
       const lhsArgs = splitTop(m[2]).map(nameTex).join(',\\ ');
-      const rhs = L.s.slice(k + 1).trim(), tup = attempt(() => rhsTuple(rhs));
-      if (tup) {
+      const rhs = L.s.slice(k + 1).trim(), tup = compact ? null : attempt(() => rhsTuple(rhs));
+      if (compact) {
+        const ast = attempt(() => parseAst(rhs));
+        if (ast) { const r = attempt(() => texOf(ast, lei)); if (r) fnItems.push(item(nameTex(m[1]) + '(' + lhsArgs + ')', r.s)); }
+      } else if (tup) {
         const a = expr(tup[0]), b = expr(tup[1]);
         if (a && b) fnItems.push(item('\\vec{' + nameTex(m[1]) + '}(' + lhsArgs + ')', '\\begin{pmatrix}' + a.s + ' \\\\ ' + b.s + '\\end{pmatrix}'));
       } else { const r = expr(rhs); if (r) fnItems.push(item(nameTex(m[1]) + '(' + lhsArgs + ')', r.s)); }
     }
     for (const L of cleanLines(T.params)) {
+      curRaw = L.s;
       const k = L.s.indexOf('=');
       if (k < 0) continue;
       const nm = L.s.slice(0, k).trim(), r = expr(L.s.slice(k + 1));
@@ -2137,12 +2917,14 @@ function texModel(T0, leiFlag) {
     }
     const RE_STATE = new RegExp('^' + NAME + "'*$", 'u');
     for (const L of cleanLines(T.ic)) {
+      curRaw = L.s;
       const k = L.s.indexOf('=');
       if (k < 0) continue;
       const nm = L.s.slice(0, k).trim().replace(/\(\s*0\s*\)\s*$/, ''), r = expr(L.s.slice(k + 1));
       if (RE_STATE.test(nm) && r) ics.push(item(idTex(nm, false).s + '(0)', r.s));
     }
     for (const L of cleanLines(T.draw)) {
+      curRaw = L.s;
       const k = L.s.indexOf(':');
       if (k < 0) continue;
       const label = L.s.slice(0, k).trim();
@@ -2150,14 +2932,19 @@ function texModel(T0, leiFlag) {
       const lab = '\\text{' + (label.replace(/[^\p{L}\p{N} _-]/gu, '').replace(/_/g, '\\_') || 'point') + '}';
       const parts = splitTop(L.s.slice(k + 1)), ex = parts.map(expr);
       if (ex.some(x => !x)) continue;
-      if (parts.length === 2) draws.push(item(lab, paren(ex[0].s + ',\\ ' + ex[1].s)));
+      if (compact && parts.length === 1) draws.push(item(lab, ex[0].s));
+      else if (compact && parts.length === 2 && isV(attempt(() => parseAst(parts[0])) || { k: 'num' })) draws.push(text(lab + ':\\ ' + ex[0].s + ' \\to ' + ex[0].s + ' + ' + ex[1].s));
+      else if (parts.length === 2) draws.push(item(lab, paren(ex[0].s + ',\\ ' + ex[1].s)));
       else if (parts.length === 4) draws.push(text(lab + ':\\ ' + paren(ex[0].s + ',\\ ' + ex[1].s) + ' \\to ' + paren(ex[2].s + ',\\ ' + ex[3].s)));
     }
     for (const a of parseActs(T.acts || '').acts) {
+      curRaw = a.head + ': ' + a.stmts.join('; ');
       const stm = a.stmts.map(st => {
         if (/^stop$/i.test(st)) return '\\text{stop}';
-        const mm = new RegExp('^set\\s+(' + NAME + "'*)\\s*(?:=|to\\b)\\s*(.+)$", 'iu').exec(st), r = mm && expr(mm[2]);
-        return r ? idTex(mm[1], false).s + ' \\leftarrow ' + r.s : null;
+        const mm = new RegExp('^set\\s+(' + NAME + "'*)(\\.[xyz])?\\s*(?:=|to\\b)\\s*(.+)$", 'iu').exec(st), r = mm && expr(mm[3]);
+        if (!r) return null;
+        const tgt = mm[2] ? expr(mm[1] + mm[2]) : { s: idTex(mm[1], false).s };
+        return tgt ? tgt.s + ' \\leftarrow ' + r.s : null;
       });
       if (stm.some(x => x === null)) continue;
       let head;
@@ -2166,17 +2953,17 @@ function texModel(T0, leiFlag) {
       actItems.push(text(head + ':\\ ' + stm.join(',\\ ')));
     }
     for (const L of cleanLines(T.fields || '')) {
-      let m;
+      let m; curRaw = L.s;
       if ((m = /^init\s+(\S+?)\s*=\s*(.+)$/i.exec(L.s))) { const r = expr(m[2]); if (r) fieldItems.push(item(idTex(m[1], false).s + '(x, y, 0)', r.s)); continue; }
       if (/^(grid|boundary|scalar|vector)\b/i.test(L.s)) continue;
       const k = L.s.indexOf('=');
       if (k < 0) continue;
       const lhs = attempt(() => parseLhs(L.s.slice(0, k))), r = expr(L.s.slice(k + 1));
       if (!lhs || !r) continue;
-      if (lhs.kind === 'ode') fieldItems.push(item('\\partial_{t}' + (lhs.order > 1 ? '^{' + lhs.order + '}' : '') + '\\,' + nameTex(lhs.name), r.s));
+      if (lhs.kind === 'ode') fieldItems.push(item(pdTex({ s: nameTex(lhs.name), p: 5 }, 't', lhs.order).s, r.s));
       else fieldItems.push(item(nameTex(lhs.name), r.s));
     }
-  } finally { TEXDIFF = null; }
+  } finally { TEXDIFF = null; TEXO = TEX_DEF; TEXVEC = new Map(); }
 
   const sections = [
     { id: 'eq', title: 'Equations', items: eqs.concat(implicit, stops) },
@@ -2189,7 +2976,7 @@ function texModel(T0, leiFlag) {
     { id: 'draw', title: 'Drawn points', inline: true, items: draws }
   ].filter(s => s.items.length);
   const lines = [];
-  sections.forEach(s => s.items.forEach(it => lines.push(it.src)));
+  sections.forEach(s => s.items.forEach(it => { it.key = s.id + '|' + it.raw; it.hidden = hide.has(it.key); if (!it.hidden) lines.push(it.src); }));
   const source = lines.length ? '% needs \\usepackage{amsmath}\n\\begin{align*}\n  ' + lines.join(' \\\\\n  ') + '\n\\end{align*}' : '';
   return { sections, source };
 }
@@ -2206,12 +2993,13 @@ const els = {
   scene: $('scene'), ts: $('ts'), phase: $('phase'), legend: $('legend'), px: $('px'), py: $('py'),
   texView: $('texView'), texEmpty: $('texEmpty'), texSrc: $('texSrc'), texPre: $('texPre'),
   texCopy: $('texCopy'), texToggle: $('texToggle'), notation: $('notation'),
+  texPick: $('texPick'), texVec: $('texVec'), texNorm: $('texNorm'), texPd: $('texPd'), texLap: $('texLap'),
   funcs: $('funcs'), funcsErr: $('funcsErr'), sceneChips: $('sceneChips'), indLabel: $('indLabel'), indHint: $('indHint'),
   acts: $('acts'), actsErr: $('actsErr'), actBar: $('actBar'), actBtns: $('actBtns'), evLog: $('evLog'),
   dvCard: $('dvCard'), dv: $('dv'), dvA: $('dvA'), dvB: $('dvB'), dvX: $('dvX'), dvVal: $('dvVal'), dvTog: $('dvTog'), dvMat: $('dvMat'),
   viewSeg: $('viewSeg'), zoomBtns: $('zoomBtns'), zin: $('zin'), zout: $('zout'),
   ioOpen: $('ioOpen'), ioModal: $('ioModal'), ioText: $('ioText'), ioSave: $('ioSave'), ioCopy: $('ioCopy'), ioLoad: $('ioLoad'), ioClose: $('ioClose'), ioMsg: $('ioMsg'),
-  fields: $('fields'), fieldsErr: $('fieldsErr'), fieldBar: $('fieldBar'), fvSel: $('fvSel'), fvArrows: $('fvArrows'), fvScale: $('fvScale'),
+  fields: $('fields'), fieldsErr: $('fieldsErr'), fieldBar: $('fieldBar'), fvSel: $('fvSel'), fvArrows: $('fvArrows'), fvScale: $('fvScale'), gpuOn: $('gpuOn'), gpuNote: $('gpuNote'),
   edToggle: $('edToggle'), resetLayout: $('resetLayout'), layout: $('layout')
 };
 const MONO = "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace";
@@ -2320,7 +3108,7 @@ function resetSim() {
   sim = newSim(model);
   model.params.forEach(p => { model.env[p.slot] = p.value; });
   syncSliders();
-  if (model.fld) fieldInit(model, sim.y);
+  if (model.fld) { fieldInit(model, sim.y); gpuUpload(model); }
   seedView();
   stopped = false; acc = 0;
   setStatus('');
@@ -2451,11 +3239,32 @@ function halt(kind, label) {
   dirty = true;
 }
 function advance(n) {
+  const fl = model.fld, gpu = !!fl && GPU.on && !!GPU.plan;
+  if (!gpu) {
+    const t0 = performance.now(), s0 = sim.steps;
+    advanceCore(n, false);
+    const done = sim.steps - s0;
+    if (fl && done >= 2) { GPU.cms = GPU.cms ? 0.7 * GPU.cms + 0.3 * ((performance.now() - t0) / done) : (performance.now() - t0) / done; if (t0 - GPU.shown > 700) { GPU.shown = t0; gpuNote(); } }
+    return;
+  }
+  const cap = Math.max(2, Math.floor(14 / Math.max(0.005, GPU.ms)));
+  if (n > cap) { n = cap; acc = 0; }
+  const t0 = performance.now(), s0 = sim.steps;
+  GPU.inAdv = true;
+  try { advanceCore(n, true); } finally { GPU.inAdv = false; }
+  GPU.gl.finish();
+  const done = sim.steps - s0;
+  if (done >= 2) GPU.ms = 0.7 * GPU.ms + 0.3 * ((performance.now() - t0) / done);
+  if (t0 - GPU.shown > 700) { GPU.shown = t0; gpuNote(); }
+  if ((++GPU.frames & 7) === 0 && !stopped) { gpuSync(fl.states[0]); }
+  if (FRT.bad && !stopped) halt('diverged');
+}
+function advanceCore(n, gpu) {
   const s = sim.scratch, nS = model.nS, fl = model.fld, t0 = fl ? performance.now() : 0;
   for (let i = 0; i < n; i++) {
     if (fl) {
-      if (i > 0 && (i & 1) === 0 && performance.now() - t0 > 14) { acc = 0; return; }
-      fieldStep(model, sim.t, sim.y, dt);
+      if (!gpu && i > 0 && (i & 1) === 0 && performance.now() - t0 > 14) { acc = 0; return; }
+      if (gpu) gpuStep(model, sim.t, sim.y, dt); else fieldStep(model, sim.t, sim.y, dt);
       if (FRT.bad) { halt('diverged'); return; }
     }
     rk4(model, sim.t, sim.y, dt, s);
@@ -2470,6 +3279,202 @@ function advance(n) {
       if (model.stopFn(model.env) > 0.5) { record(); halt('stop'); return; }
     }
   }
+}
+
+// ---------- GPU runtime (WebGL2): the field equations run as fragment shaders, with the same fixed dt ----------
+const GPU = { on: false, want: true, gl: null, bad: '', vs: null, vao: null, progs: new Map(), plan: null, tex: null, cur: null, fbo: null, ubo: null, ef: null, rb: null, sig: '', ms: 0.3, frames: 0, note: '', bound: false, cms: 0, hot: new Set(), inAdv: false, pack: null, packTex: null, packFbo: null, packKey: '', packBuf: null, shown: 0 };
+function gpuContext() {
+  if (GPU.gl || GPU.bad) return GPU.gl;
+  try {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 1;
+    const gl = cv.getContext('webgl2', { antialias: false, depth: false, stencil: false, alpha: false, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('WebGL2 is not available');
+    if (!gl.getExtension('EXT_color_buffer_float')) throw new Error('float render targets are not available');
+    const dbg = gl.getExtension('WEBGL_debug_renderer_info'), rn = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
+    if (/swiftshader|llvmpipe|software|basic render|softpipe/i.test(rn) && !window.__gpuSoft) throw new Error('this browser is drawing in software (' + rn.slice(0, 40) + '), so there is no graphics card to use. Turn on hardware acceleration in the browser settings');
+    const vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, '#version 300 es\nvoid main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }');
+    gl.compileShader(vs);
+    GPU.vs = vs; GPU.vao = gl.createVertexArray(); GPU.gl = gl;
+    cv.addEventListener('webglcontextlost', e => { e.preventDefault(); GPU.gl = null; GPU.bad = 'the graphics context was lost'; GPU.on = false; GPUHOOK.auth = 'cpu'; if (model && model.fld) gpuNote(); });
+  } catch (e) { GPU.bad = e.message; GPU.gl = null; }
+  return GPU.gl;
+}
+function gpuProgram(src) {
+  if (GPU.progs.has(src)) return GPU.progs.get(src);
+  const gl = GPU.gl, fs = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(fs, src); gl.compileShader(fs);
+  if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) throw new Error('shader: ' + String(gl.getShaderInfoLog(fs)).split('\n')[0]);
+  const pr = gl.createProgram();
+  gl.attachShader(pr, GPU.vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+  if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error('shader: ' + String(gl.getProgramInfoLog(pr)).split('\n')[0]);
+  const bi = gl.getUniformBlockIndex(pr, 'Env');
+  if (bi !== gl.INVALID_INDEX) gl.uniformBlockBinding(pr, bi, 0);
+  const o = { pr, uH: gl.getUniformLocation(pr, 'uH'), uN: gl.getUniformLocation(pr, 'uN'), uGeo: gl.getUniformLocation(pr, 'uGeo'), h: NaN, gs: '' };
+  gl.useProgram(pr);
+  for (let k = 0; k < 14; k++) { const loc = gl.getUniformLocation(pr, 'uF' + k); if (loc) gl.uniform1i(loc, k); }
+  if (GPU.progs.size > 80) GPU.progs.clear();
+  GPU.progs.set(src, o);
+  return o;
+}
+function gpuNote() {
+  const on = GPU.on;
+  const sp = ms => ' · ' + ms.toFixed(2) + ' ms/step, up to ' + Math.max(0.1, 1000 * dt / ms / 1).toFixed(dt * 1000 / ms >= 10 ? 0 : 1) + 'x speed';
+  els.gpuNote.textContent = !model || !model.fld ? '' : on ? 'on the GPU' + sp(GPU.ms) : (GPU.note || 'on the CPU') + (GPU.cms ? sp(GPU.cms) : '');
+  els.gpuNote.title = GPU.note || '';
+}
+function gpuDrop() {
+  const gl = GPU.gl;
+  if (gl && GPU.tex) { GPU.tex.forEach(p => p.forEach(t => gl.deleteTexture(t))); GPU.fbo.forEach(p => p.forEach(f => gl.deleteFramebuffer(f))); }
+  GPU.tex = null; GPU.fbo = null; GPU.cur = null; GPU.sig = ''; GPU.bound = false; GPU.hot.clear(); GPU.packKey = '';
+}
+function gpuAttach(m) {
+  const wasGpu = GPUHOOK.auth === 'gpu';
+  GPU.on = false; GPU.plan = null; GPU.note = '';
+  if (!m.fld) { gpuNote(); return; }
+  const fail = why => {
+    GPU.note = 'on the CPU: ' + why;
+    if (wasGpu && GPU.tex && GPU.sig === m.fld.sig) gpuSyncAll();
+    GPUHOOK.auth = 'cpu'; gpuNote();
+  };
+  if (!GPU.want) { if (wasGpu && GPU.tex && GPU.sig === m.fld.sig) gpuSyncAll(); GPUHOOK.auth = 'cpu'; GPU.note = 'on the CPU (GPU switched off)'; gpuNote(); return; }
+  if (!gpuContext()) { fail(GPU.bad); return; }
+  try {
+    const plan = gpuBuild(m);
+    plan.runs = plan.passes.map(ps => Object.assign({}, ps, { P: gpuProgram(ps.src) }));
+    const gl = GPU.gl;
+    if (!GPU.ubo) { GPU.ubo = gl.createBuffer(); }
+    gl.bindBuffer(gl.UNIFORM_BUFFER, GPU.ubo);
+    if (!GPU.ef || GPU.ef.length !== plan.NE4 * 4) { GPU.ef = new Float32Array(plan.NE4 * 4); gl.bufferData(gl.UNIFORM_BUFFER, GPU.ef, gl.DYNAMIC_DRAW); }
+    gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, GPU.ubo);
+    GPU.plan = plan; GPU.on = true;
+    if (GPU.sig !== m.fld.sig) { GPUHOOK.auth = 'cpu'; gpuDrop(); }
+  } catch (e) { fail(e.message); return; }
+  gpuNote();
+}
+function gpuMakeTex(m) {
+  const gl = GPU.gl, g = m.fld, n = g.names.length;
+  gpuDrop();
+  GPU.tex = []; GPU.fbo = []; GPU.cur = new Uint8Array(n);
+  for (let k = 0; k < n; k++) {
+    const tx = [], fb = [];
+    for (let s = 0; s < 2; s++) {
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, g.nx, g.ny);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      const f = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('cannot render to float textures');
+      tx.push(t); fb.push(f);
+    }
+    GPU.tex.push(tx); GPU.fbo.push(fb);
+  }
+  GPU.rb = new Float32Array(g.nx * g.ny * 4);
+  GPU.sig = g.sig;
+}
+// copy the CPU arrays (just initialised, or edited while on the CPU) to the textures
+function gpuUpload(m) {
+  if (!GPU.on) return;
+  try {
+    const gl = GPU.gl, g = m.fld, N = g.nx * g.ny;
+    if (!GPU.tex || GPU.sig !== g.sig) gpuMakeTex(m);
+    const buf = GPU.rb;
+    for (let k = 0; k < g.names.length; k++) {
+      const a = FRT.arr[k];
+      for (let c = 0; c < N; c++) { buf[4 * c] = a[c]; buf[4 * c + 1] = 0; buf[4 * c + 2] = 0; buf[4 * c + 3] = 1; }
+      gl.bindTexture(gl.TEXTURE_2D, GPU.tex[k][GPU.cur[k]]);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, g.nx, g.ny, gl.RGBA, gl.FLOAT, buf);
+    }
+    GPU.bound = false; GPU.hot.clear();
+    GPUHOOK.auth = 'gpu';
+    if (FRT.dirty) FRT.dirty.fill(0);
+  } catch (e) { GPU.on = false; GPU.note = 'on the CPU: ' + e.message; GPUHOOK.auth = 'cpu'; gpuNote(); }
+}
+function gpuSync(k) {
+  if (GPUHOOK.auth !== 'gpu' || !FRT.dirty || !FRT.dirty[k] || !GPU.tex) return;
+  if (GPU.inAdv) GPU.hot.add(k);
+  const gl = GPU.gl, N = FRT.nx * FRT.ny, buf = GPU.rb, a = FRT.arr[k];
+  gl.bindFramebuffer(gl.FRAMEBUFFER, GPU.fbo[k][GPU.cur[k]]);
+  gl.readPixels(0, 0, FRT.nx, FRT.ny, gl.RGBA, gl.FLOAT, buf);
+  let bad = false;
+  for (let c = 0; c < N; c++) { const v = buf[4 * c]; a[c] = v; if (!(v > -1e12 && v < 1e12)) bad = true; }
+  if (bad) FRT.bad = true;
+  FRT.dirty[k] = 0;
+}
+GPUHOOK.sync = gpuSync;
+function gpuSyncAll() { for (let k = 0; k < FRT.arr.length; k++) gpuSync(k); }
+// The fields the CPU side keeps asking for (sample, fsum ...) are packed into one texture and read back in a single call per step.
+function gpuPrefetch(m) {
+  const gl = GPU.gl, g = m.fld, hot = [...GPU.hot].sort((x, y) => x - y), T = Math.ceil(hot.length / 4), nx = g.nx, ny = g.ny;
+  const key = hot.join(',') + '|' + nx + 'x' + ny;
+  if (GPU.packKey !== key) {
+    let src = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\nuniform ivec2 uN;\n';
+    hot.forEach(k => { src += 'uniform sampler2D uF' + k + ';\n'; });
+    src += 'out vec4 o;\nvoid main() {\n  ivec2 c = ivec2(gl_FragCoord.xy);\n  int tile = c.x / uN.x;\n  ivec2 q = ivec2(c.x - tile * uN.x, c.y);\n  vec4 r = vec4(0.0);\n';
+    hot.forEach((k, i) => { src += '  if (tile == ' + (i >> 2) + ') r[' + (i & 3) + '] = texelFetch(uF' + k + ', q, 0).r;\n'; });
+    src += '  o = r;\n}\n';
+    GPU.pack = gpuProgram(src);
+    if (GPU.packTex) { gl.deleteTexture(GPU.packTex); gl.deleteFramebuffer(GPU.packFbo); }
+    GPU.packTex = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + 15); gl.bindTexture(gl.TEXTURE_2D, GPU.packTex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, nx * T, ny);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    GPU.packFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, GPU.packFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, GPU.packTex, 0);
+    GPU.packBuf = new Float32Array(nx * T * ny * 4);
+    GPU.packKey = key;
+  }
+  const P = GPU.pack;
+  gl.useProgram(P.pr); gl.uniform2i(P.uN, nx, ny);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, GPU.packFbo);
+  gl.viewport(0, 0, nx * T, ny);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.viewport(0, 0, nx, ny);
+  const buf = GPU.packBuf, W = nx * T;
+  gl.readPixels(0, 0, W, ny, gl.RGBA, gl.FLOAT, buf);
+  let bad = false;
+  hot.forEach((k, i) => {
+    const a = FRT.arr[k], tile = i >> 2, ch = i & 3;
+    for (let j = 0; j < ny; j++) for (let x = 0; x < nx; x++) { const v = buf[((j * W) + tile * nx + x) * 4 + ch]; a[j * nx + x] = v; if (!(v > -1e12 && v < 1e12)) bad = true; }
+    FRT.dirty[k] = 0;
+  });
+  if (bad) FRT.bad = true;
+}
+function gpuStep(m, t, y, h) {
+  const gl = GPU.gl, g = m.fld, plan = GPU.plan;
+  if (GPUHOOK.auth !== 'gpu') { gpuUpload(m); if (!GPU.on) { fieldStep(m, t, y, h); return; } }
+  if (!GPU.bound) {
+    for (let k = 0; k < g.names.length; k++) { gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, GPU.tex[k][GPU.cur[k]]); }
+    GPU.bound = true;
+  }
+  m.snapshot(t, y);
+  const env = m.env, ef = GPU.ef;
+  for (let i = 0; i < env.length; i++) ef[i] = env[i];
+  gl.bindBuffer(gl.UNIFORM_BUFFER, GPU.ubo);
+  gl.bufferSubData(gl.UNIFORM_BUFFER, 0, ef);
+  gl.bindVertexArray(GPU.vao);
+  gl.viewport(0, 0, g.nx, g.ny);
+  let late = false;
+  for (const r of plan.runs) {
+    if (r.late && !late) { late = true; ef[0] = t + h; gl.bufferSubData(gl.UNIFORM_BUFFER, 0, ef); }
+    const P = r.P;
+    gl.useProgram(P.pr);
+    if (P.h !== h) { gl.uniform1f(P.uH, h); P.h = h; }
+    if (P.gs !== g.sig) { gl.uniform2i(P.uN, g.nx, g.ny); gl.uniform4f(P.uGeo, g.x0, g.y0, g.dx, g.dy); P.gs = g.sig; }
+    const k = r.k;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, GPU.fbo[k][1 - GPU.cur[k]]);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    GPU.cur[k] ^= 1;
+    gl.activeTexture(gl.TEXTURE0 + k); gl.bindTexture(gl.TEXTURE_2D, GPU.tex[k][GPU.cur[k]]);
+  }
+  FRT.step++;
+  env[0] = t + h;
+  FRT.dirty.fill(1);
+  if (GPU.hot.size) gpuPrefetch(m);
 }
 
 // ----- model text -> model -----
@@ -2492,6 +3497,7 @@ function applyModel(kind) {
   const same = !!old && !!sim && old.stateNames.join('|') === m.stateNames.join('|') && old.serIdx.length === m.serIdx.length && ((old.fld && old.fld.sig) || '') === ((m.fld && m.fld.sig) || '');
   if (same && m.fld) { m.fld.edgeIdx = old.fld.edgeIdx; m.fld.edgeS = old.fld.edgeS; m.fld.wallIdx = old.fld.wallIdx; }
   model = m;
+  gpuAttach(m);
   if (kind === 'params' && same) {
     if (sim.evs.length !== m.events.length) initEvents();
   } else if (kind === 'draw' && same) {
@@ -2786,6 +3792,7 @@ function fvValues(opt, N) {
 function drawFieldLayer(ctx, W, H, S, sx, sy) {
   const g = model.fld, opt = fvOpts[els.fvSel.selectedIndex];
   if (!g || !opt || !FRT.arr.length || FRT.arr[0].length !== g.nx * g.ny) return null;
+  if (GPU.on) opt.ks.concat(opt.group || []).forEach(gpuSync);
   const N = g.nx * g.ny, vals = fvValues(opt, N);
   let peak = 0;
   for (let c = 0; c < N; c++) { const a = Math.abs(vals[c]); if (a > peak) peak = a; }
@@ -3072,6 +4079,11 @@ function setSpeed(v) {
 function loadPreset(p) {
   els.eq.value = p.eq; els.funcs.value = p.funcs || ''; els.params.value = p.params; els.ic.value = p.ic; els.draw.value = p.draw || ''; els.acts.value = p.acts || ''; els.fields.value = p.fields || ''; pendingFv = p.fv || null;
   fieldOn = p.chips ? Object.assign({}, p.chips) : {}; pendingShade = p.shade || null;
+  texHidden = new Set(p.tex && Array.isArray(p.tex.hidden) ? p.tex.hidden : []);
+  if (p.tex) {
+    const sv = (el, v) => { if (v !== undefined && [...el.options].some(o => o.value === v)) el.value = v; };
+    sv(els.notation, p.tex.derivatives === 'lei' ? 'lei' : p.tex.derivatives === 'dot' ? 'dot' : undefined); sv(els.texVec, p.tex.vec); sv(els.texNorm, p.tex.norm); sv(els.texPd, p.tex.pd); sv(els.texLap, p.tex.lap);
+  }
   link = !!p.link; els.link.checked = link;
   setSpeed(p.speed || 1);
   els.dt.value = p.dt; readDt();
@@ -3123,16 +4135,20 @@ function typesetEl(el) {
   texChain = texChain.then(() => MathJax.typesetPromise([el])).catch(() => {});
 }
 function scheduleTex() { clearTimeout(texTimer); texTimer = setTimeout(renderTexNow, 160); }
+let texHidden = new Set(), texPick = false;
+const texOpts = () => ({ vec: els.texVec.value, norm: els.texNorm.value, pd: els.texPd.value, lap: els.texLap.value, hide: texHidden });
 function renderTexNow() {
   clearTimeout(texTimer);
-  const out = texModel(readText(), els.notation.value === 'lei');
+  const out = texModel(readText(), els.notation.value === 'lei', texOpts());
   texSource = out.source;
   if (!els.texSrc.hidden) els.texPre.textContent = texSource;
-  els.texEmpty.hidden = out.sections.length > 0;
+  const secs = out.sections.map(o => Object.assign({}, o, { items: texPick ? o.items : o.items.filter(x => !x.hidden) })).filter(o => o.items.length);
+  els.texEmpty.hidden = secs.length > 0;
+  els.texEmpty.textContent = out.sections.length ? 'Every line is hidden. Press Lines to show some again.' : 'Your equations appear here as you type them.';
   for (const [id, s] of texSecs) {
-    if (!out.sections.some(o => o.id === id)) { s.el.remove(); texSecs.delete(id); }
+    if (!secs.some(o => o.id === id)) { s.el.remove(); texSecs.delete(id); }
   }
-  out.sections.forEach((o, i) => {
+  secs.forEach((o, i) => {
     let s = texSecs.get(o.id);
     if (!s) {
       const el = document.createElement('div'), tl = document.createElement('div'), body = document.createElement('div');
@@ -3143,16 +4159,24 @@ function renderTexNow() {
     }
     s.tl.textContent = o.title;
     s.body.className = o.inline ? 'tbody tinline' : 'tbody';
-    const key = (mjReady ? 'm' : 'r') + '|' + o.inline + '|' + o.items.map(x => x.disp).join('\n');
+    const key = (mjReady ? 'm' : 'r') + '|' + o.inline + '|' + texPick + '|' + o.items.map(x => (texPick ? '' : x.hidden ? '0' : '1') + x.disp).join('\n');
     if (s.key !== key) {
       s.key = key;
       if (mjReady && MathJax.typesetClear) MathJax.typesetClear([s.body]);
       s.body.textContent = '';
       for (const it of o.items) {
-        const row = document.createElement('div');
-        row.className = 'trow';
-        if (mjReady) row.textContent = o.inline ? '\\(' + it.disp + '\\)' : '\\[' + it.disp + '\\]';
-        else { row.classList.add('raw'); row.textContent = it.disp; }
+        const row = document.createElement('div'), m = document.createElement('span');
+        row.className = 'trow'; m.className = 'tm';
+        if (mjReady) m.textContent = o.inline ? '\\(' + it.disp + '\\)' : '\\[' + it.disp + '\\]';
+        else { row.classList.add('raw'); m.textContent = it.disp; }
+        if (texPick) {
+          const cb = document.createElement('input');
+          cb.type = 'checkbox'; cb.checked = !it.hidden; cb.setAttribute('aria-label', 'Show this line');
+          cb.addEventListener('change', () => { if (cb.checked) texHidden.delete(it.key); else texHidden.add(it.key); row.classList.toggle('off', !cb.checked); renderTexNow(); });
+          row.classList.add('pick'); if (it.hidden) row.classList.add('off');
+          row.append(cb);
+        }
+        row.append(m);
         s.body.appendChild(row);
       }
       typesetEl(s.body);
@@ -3165,7 +4189,12 @@ window.addEventListener('mathjax-ready', () => {
   texSecs.forEach(s => { s.key = null; });
   renderTexNow();
 });
-els.notation.addEventListener('change', renderTexNow);
+els.gpuOn.addEventListener('change', () => {
+  GPU.want = els.gpuOn.checked;
+  if (model && model.fld) { if (!GPU.want && GPU.on) gpuSyncAll(); gpuAttach(model); if (sim) { acc = 0; dirty = true; } }
+});
+els.texPick.addEventListener('click', () => { texPick = !texPick; els.texPick.setAttribute('aria-pressed', texPick); els.texPick.classList.toggle('on', texPick); texSecs.forEach(s => { s.key = null; }); renderTexNow(); });
+[els.notation, els.texVec, els.texNorm, els.texPd, els.texLap].forEach(e => e.addEventListener('change', renderTexNow));
 els.texToggle.addEventListener('click', () => {
   const open = els.texSrc.hidden;
   els.texSrc.hidden = !open;
@@ -3405,26 +4434,19 @@ function saveJSON() {
     settings: {
       dt, speed, window: win, trail, joinPoints: link, view: viewMode, cameraBox: viewMode === 'auto' ? null : camBox,
       fieldView: model && model.fld ? { show: (fvOpts[els.fvSel.selectedIndex] || {}).label || null, arrows: els.fvArrows.checked, range: parseFloat(els.fvScale.value) || 0 } : null,
-      show: model ? model.seriesNames.filter((n, j) => enabled[j]) : [], phase: [els.px.value, els.py.value], fields: fieldOn
+      show: model ? model.seriesNames.filter((n, j) => enabled[j]) : [], phase: [els.px.value, els.py.value], fields: fieldOn,
+      typeset: Object.assign({ derivatives: els.notation.value }, texOpts(), { hide: undefined, hidden: [...texHidden] })
     }
   };
   return JSON.stringify(o, null, 2);
 }
-function asText(v) { return Array.isArray(v) ? v.join('\n') : (typeof v === 'string' ? v : ''); }
 function loadJSON(text) {
   let o;
   try { o = JSON.parse(text); } catch (e) { throw new Error('This is not valid JSON: ' + e.message); }
   if (!o || typeof o !== 'object' || o.equations === undefined) throw new Error('This does not look like a saved system (no "equations" entry)');
-  const st = o.settings || {}, num = (v, d) => (Number.isFinite(+v) && v !== null && v !== '' ? +v : d);
-  loadPreset({
-    id: 'custom', eq: asText(o.equations), funcs: asText(o.functions), params: asText(o.parameters), ic: asText(o.initial), draw: asText(o.draw), acts: asText(o.actions), fields: asText(o.fields),
-    fv: st.fieldView && typeof st.fieldView === 'object' ? st.fieldView : null,
-    link: !!st.joinPoints, speed: num(st.speed, 1), dt: Math.max(1e-5, num(st.dt, 0.005)), win: Math.max(0, num(st.window, 10)), trail: Math.max(0, num(st.trail, 2)),
-    show: Array.isArray(st.show) && st.show.length ? st.show : null, phase: Array.isArray(st.phase) && st.phase[0] ? st.phase : null,
-    chips: st.fields && typeof st.fields === 'object' ? st.fields : null,
-    view: ['auto', 'locked', 'free'].includes(st.view) ? st.view : null,
-    camBox: Array.isArray(st.cameraBox) && st.cameraBox.length === 4 && st.cameraBox.every(Number.isFinite) ? st.cameraBox : null
-  });
+  const p = presetFromSaved(o);
+  p.id = 'custom';
+  loadPreset(p);
 }
 function ioMsg(t, bad) { els.ioMsg.textContent = t; els.ioMsg.style.color = bad ? 'var(--bad)' : ''; }
 function openIO(open) {
