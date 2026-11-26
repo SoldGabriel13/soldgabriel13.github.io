@@ -298,6 +298,16 @@ E = 0.5*dot(r', r')</pre>
           <p>Any variable, parameter or helper can be a vector: write it as <code>(a, b)</code> or <code>(a, b, c)</code>. The vector is split into components named <code>r_x, r_y, r_z</code> behind the scenes, so those names appear in plots and sliders. Use <code>r.x</code> or <code>r'.y</code> for one component. Vectors add, subtract and scale (<code>2*v</code>, <code>v/3</code>). To multiply two vectors use <code>dot(a, b)</code> or <code>cross(a, b)</code>.</p>
           <p>Also: <code>norm(v)</code> (length), <code>unit(v)</code>, <code>perp(v)</code> (2D, turned 90°), <code>rot(v, angle)</code>, <code>proj(a, b)</code>, <code>angle(a, b)</code>. A scalar function such as <code>sin</code> needs single numbers, so use a component.</p>
         </details>
+        <details class="sub"><summary>4b. Complex numbers</summary>
+<pre>z' = a*z
+a = -0.15 + 2*i
+z = 3
+w = exp(i*t)*sqrt(z)
+I = integral(i*exp(i*s), s, 0, t)</pre>
+          <p><code>i</code> (or <code>j</code>) is the imaginary unit unless your model uses that name for something else. Any variable, parameter, helper or field that gets a complex value becomes complex by itself, split into <code>z_re</code> and <code>z_im</code> behind the scenes (so those names are what you plot, and <code>draw: z</code> puts a point at the number). Use <code>z.re</code> / <code>z.im</code> or <code>re(z)</code>, <code>im(z)</code>, plus <code>conj(z)</code>, <code>arg(z)</code>, <code>abs(z)</code>, <code>complex(a, b)</code> and <code>polar(r, angle)</code>.</p>
+          <p>Arithmetic, powers (<code>z^2</code>, <code>z^0.5</code>, <code>z^w</code>), <code>exp</code>, <code>ln</code>, <code>sqrt</code>, <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>sinh</code>, <code>cosh</code>, <code>tanh</code> all work on complex numbers and use the principal branch (so <code>ln</code> and <code>sqrt</code> jump across the negative real axis). <code>integral</code> and <code>D</code> accept complex expressions, so a contour integral is <code>integral(f(z(s))*z'(s), s, a, b)</code> written out with your path. <code>set z to 1 + i</code> and <code>set z.re to 0</code> work in actions.</p>
+          <p>Fields can be complex too: write <code>complex psi</code> in the grid section. <code>lap</code>, <code>Dx</code>, <code>Dy</code>, <code>Dxx</code>, <code>Dyy</code> and <code>sample</code> act on both parts, so the Schrödinger equation is just <code>psi' = i*(0.5*lap(psi) - V*psi)</code>. The Show menu gets <code>|psi|</code>, <code>arg psi</code> (colour is the phase, brightness the size) and the two parts. Note that explicit stepping keeps the norm only for a small <code>dt</code> (below about <code>dx²/4</code>).</p>
+        </details>
         <details class="sub"><summary>5. Drawing the scene</summary>
 <pre>bob: L*sin(th), -L*cos(th)       # a point
 ball: r                          # a vector is a point
@@ -840,14 +850,18 @@ function parseActs(text) {
 
 // ---------- vector variables: (a, b) tuples, dot/cross/norm, r.x; expanded into scalar lines ----------
 const VCOMP = ['x', 'y', 'z'];
-const vcomp = (base, i, n) => base + '_' + (n <= 3 ? VCOMP[i] : i + 1);
+const vcomp = (base, i, n, cx) => base + '_' + (cx ? (i ? 'im' : 're') : n <= 3 ? VCOMP[i] : i + 1);
+const CXFUNCS = new Set(['re', 'im', 'conj', 'arg', 'polar', 'complex']);
+const RE_CXFN = /(^|[^\p{L}\p{N}_'.])(re|im|conj|arg|polar|complex)\s*\(/u;
+const cxv = (re, im) => ({ n: 2, cx: true, c: [re, im] });
+const cxPromote = v => (v.cx ? v : cxv(v.c[0], { s: '0', p: 5 }));
 const VFUNCS = new Set(['dot', 'cross', 'norm', 'mag', 'unit', 'perp', 'rot', 'proj', 'angle', 'grad', 'div', 'curl', 'lap']);
 const RE_FDECL = new RegExp('^(' + NAME + ')(?:\\[(\\d)\\])?$', 'u');
 const RE_FNAME = new RegExp('^' + NAME + "'*$", 'u');
 const RE_VID = new RegExp(NAME + "'*", 'gu');
 const RE_LHS1 = new RegExp('^(' + NAME + ")('*)\\s*(\\(\\s*0\\s*\\))?$", 'u');
 const RE_ZERO = /^0(\.0*)?$/;
-const RE_SET = new RegExp('^set\\s+(' + NAME + "'*)(?:\\.([xyz]))?\\s*(?:=|to\\b)\\s*(.+)$", 'iu');
+const RE_SET = new RegExp('^set\\s+(' + NAME + "'*)(?:\\.(x|y|z|re|im))?\\s*(?:=|to\\b)\\s*(.+)$", 'iu');
 
 function vlex(src) {
   const out = [], OP = /\*\*|<=|>=|[-+*\/^(),<>\[\].]/y;
@@ -881,9 +895,10 @@ function needsV(src, ctx, noTuple) {
   if (src.indexOf('[') >= 0) return true;
   for (const m of src.matchAll(RE_VID)) {
     const b = m[0].replace(/'+$/, '');
-    if (ctx.vecs.has(b) || VFUNCS.has(b) || ctx.vfns.has(b)) return true;
+    if (ctx.vecs.has(b) || VFUNCS.has(b) || ctx.vfns.has(b) || ctx.cxs.has(b) || ctx.imag.has(b)) return true;
   }
-  if (/[\p{L}\p{N}_')\]]\s*\.\s*[xyz]\b/u.test(src)) return true;
+  if (RE_CXFN.test(src)) return true;
+  if (/[\p{L}\p{N}_')\]]\s*\.\s*(x|y|z|re|im)\b/u.test(src)) return true;
   return noTuple ? false : hasTuple(src);
 }
 
@@ -895,7 +910,52 @@ function vparse(src, ctx) {
   const R = (c, need) => (c.p === 3 ? '(' + c.s + ')' : wrap(c, need));
   const isOp = o => p < tk.length && tk[p].t === 'op' && tk[p].v === o;
   const isW = w => p < tk.length && tk[p].t === 'id' && tk[p].v === w;
-  const one = (v, what) => { if (v.n !== 1) throw new Error(what + ' needs single numbers, but this is a vector with ' + v.n + ' components'); return v.c[0]; };
+  const one = (v, what) => {
+    if (v.cx) throw new Error(what + ' needs real numbers, but this is a complex number. Use re(z), im(z) or abs(z)');
+    if (v.n !== 1) throw new Error(what + ' needs single numbers, but this is a vector with ' + v.n + ' components');
+    return v.c[0];
+  };
+  const toC = (v, what) => { if (v.cx) return v; if (v.n === 1) return cxPromote(v); throw new Error((what || 'This') + ' mixes a complex number with a vector'); };
+  const w2 = c => (c.p === 3 ? '(' + c.s + ')' : wrap(c, 2));
+  const isZ = c => c.s === '0', isOne = c => c.s === '1';
+  const tm = (x, y) => (isZ(x) || isZ(y) ? { s: '0', p: 5 } : isOne(x) ? y : isOne(y) ? x : { s: w2(x) + '*' + w2(y), p: 2 });
+  const ad = (x, y, op) => (isZ(y) ? x : isZ(x) ? (op === '+' ? y : { s: '-' + R(y, 2), p: 3 }) : { s: wrap(x, 1) + ' ' + op + ' ' + R(y, op === '-' ? 2 : 1), p: 1 });
+  const dv = (x, y) => (isZ(x) ? x : isOne(y) ? x : { s: w2(x) + '/' + R(y, 3), p: 2 });
+  const cmul = (a, b) => cxv(ad(tm(a.c[0], b.c[0]), tm(a.c[1], b.c[1]), '-'), ad(tm(a.c[0], b.c[1]), tm(a.c[1], b.c[0]), '+'));
+  const cdiv = (a, b) => {
+    if (isZ(b.c[1])) return cxv(dv(a.c[0], b.c[0]), dv(a.c[1], b.c[0]));
+    const d = ad(tm(b.c[0], b.c[0]), tm(b.c[1], b.c[1]), '+');
+    return cxv(dv(ad(tm(a.c[0], b.c[0]), tm(a.c[1], b.c[1]), '+'), d), dv(ad(tm(a.c[1], b.c[0]), tm(a.c[0], b.c[1]), '-'), d));
+  };
+  const rad = a => 'hypot(' + a.c[0].s + ', ' + a.c[1].s + ')', ang = a => 'atan2(' + a.c[1].s + ', ' + a.c[0].s + ')';
+  const P2 = s => ({ s, p: 2 });
+  const cfun = (name, a) => {
+    const x = a.c[0].s, y = a.c[1].s;
+    switch (name) {
+      case 'exp': return x === '0' ? cxv({ s: 'cos(' + y + ')', p: 5 }, { s: 'sin(' + y + ')', p: 5 }) : cxv(P2('exp(' + x + ')*cos(' + y + ')'), P2('exp(' + x + ')*sin(' + y + ')'));
+      case 'ln': case 'log': return cxv({ s: 'ln(' + rad(a) + ')', p: 5 }, { s: ang(a), p: 5 });
+      case 'sqrt': return cxv(P2('sqrt(' + rad(a) + ')*cos(' + ang(a) + '/2)'), P2('sqrt(' + rad(a) + ')*sin(' + ang(a) + '/2)'));
+      case 'sin': return cxv(P2('sin(' + x + ')*cosh(' + y + ')'), P2('cos(' + x + ')*sinh(' + y + ')'));
+      case 'cos': return cxv(P2('cos(' + x + ')*cosh(' + y + ')'), { s: '-sin(' + x + ')*sinh(' + y + ')', p: 3 });
+      case 'sinh': return cxv(P2('sinh(' + x + ')*cos(' + y + ')'), P2('cosh(' + x + ')*sin(' + y + ')'));
+      case 'cosh': return cxv(P2('cosh(' + x + ')*cos(' + y + ')'), P2('sinh(' + x + ')*sin(' + y + ')'));
+      case 'tan': return cdiv(cfun('sin', a), cfun('cos', a));
+      case 'tanh': return cdiv(cfun('sinh', a), cfun('cosh', a));
+    }
+    throw new Error(name + ' is not available for complex numbers');
+  };
+  const cpow = (a, b) => {
+    if (!b.cx && b.n === 1 && /^-?\d+$/.test(b.c[0].s.trim())) {
+      const k = +b.c[0].s;
+      if (Math.abs(k) <= 8) {
+        if (k === 0) return cxv({ s: '1', p: 5 }, { s: '0', p: 5 });
+        let r = a;
+        for (let q = 1; q < Math.abs(k); q++) r = cmul(r, a);
+        return k < 0 ? cdiv(cxv({ s: '1', p: 5 }, { s: '0', p: 5 }), r) : r;
+      }
+    }
+    return cfun('exp', cmul(toC(b, 'A power'), cfun('ln', a)));
+  };
   const expect = o => { if (!isOp(o)) throw new Error("Expected '" + o + "'" + (p < tk.length ? " before '" + tk[p].v + "'" : ' at the end')); p++; };
   const lenStr = a => 'sqrt(' + a.c.map(c => wrap(c, 5) + '^2').join(' + ') + ')';
   function lor() {
@@ -920,6 +980,11 @@ function vparse(src, ctx) {
     let a = term();
     while (isOp('+') || isOp('-')) {
       const op = tk[p++].v, b = term();
+      if (a.cx || b.cx) {
+        const A = toC(a, 'Cannot ' + (op === '+' ? 'add' : 'subtract')), B = toC(b, 'Cannot ' + (op === '+' ? 'add' : 'subtract'));
+        a = cxv(ad(A.c[0], B.c[0], op), ad(A.c[1], B.c[1], op));
+        continue;
+      }
       if (a.n !== b.n) throw new Error(a.n === 1 || b.n === 1 ? 'Cannot ' + (op === '+' ? 'add' : 'subtract') + ' a number and a vector' : 'Cannot ' + (op === '+' ? 'add' : 'subtract') + ' vectors with ' + a.n + ' and ' + b.n + ' components');
       a = { n: a.n, c: a.c.map((c, i) => ({ s: wrap(c, 1) + ' ' + op + ' ' + R(b.c[i], op === '-' ? 2 : 1), p: 1 })) };
     }
@@ -929,6 +994,13 @@ function vparse(src, ctx) {
     let a = unary();
     while (isOp('*') || isOp('/')) {
       const op = tk[p++].v, b = unary();
+      if (a.cx || b.cx) {
+        if (a.cx && b.cx) a = op === '*' ? cmul(a, b) : cdiv(a, b);
+        else if (a.cx && b.n === 1) a = op === '*' ? cxv(tm(a.c[0], b.c[0]), tm(a.c[1], b.c[0])) : cxv(dv(a.c[0], b.c[0]), dv(a.c[1], b.c[0]));
+        else if (b.cx && a.n === 1) a = op === '*' ? cxv(tm(a.c[0], b.c[0]), tm(a.c[0], b.c[1])) : cdiv(toC(a), b);
+        else throw new Error('Cannot multiply or divide a complex number by a vector');
+        continue;
+      }
       if (a.n > 1 && b.n > 1) throw new Error('Use dot(a, b) or cross(a, b) to multiply two vectors');
       if (a.n === 1 && b.n > 1) {
         if (op === '/') throw new Error('Cannot divide a number by a vector');
@@ -940,7 +1012,7 @@ function vparse(src, ctx) {
     return a;
   }
   function unary() {
-    if (isOp('-')) { p++; const a = unary(); return { n: a.n, c: a.c.map(c => ({ s: '-' + R(c, 2), p: 3 })) }; }
+    if (isOp('-')) { p++; const a = unary(); return { n: a.n, cx: a.cx, c: a.c.map(c => ({ s: '-' + R(c, 2), p: 3 })) }; }
     if (isOp('+')) { p++; return unary(); }
     return power();
   }
@@ -949,15 +1021,18 @@ function vparse(src, ctx) {
     if (isOp('^') || isOp('**')) {
       p++;
       const b = unary();
+      if (a.cx || b.cx) return cpow(toC(a, 'A power'), b);
       return S(wrap(one(a, 'A power'), 5) + '^' + wrap(one(b, 'A power'), 3), 4);
     }
     return a;
   }
   function primary() {
     let v = atom();
-    while (isOp('.') && p + 1 < tk.length && tk[p + 1].t === 'id' && /^[xyz]$/.test(tk[p + 1].v)) {
-      const nm = tk[p + 1].v, i = VCOMP.indexOf(nm);
+    while (isOp('.') && p + 1 < tk.length && tk[p + 1].t === 'id' && /^(x|y|z|re|im)$/.test(tk[p + 1].v)) {
+      const nm = tk[p + 1].v, i = v.cx ? (nm === 're' ? 0 : nm === 'im' ? 1 : -1) : VCOMP.indexOf(nm);
       p += 2;
+      if (v.cx && i < 0) throw new Error('Complex numbers have .re and .im, not .' + nm);
+      if (!v.cx && (nm === 're' || nm === 'im')) throw new Error('Only complex numbers have .' + nm);
       if (v.n === 1) throw new Error('Only vectors have components such as .' + nm);
       if (i >= v.n) throw new Error('This vector has no .' + nm + ' component');
       v = { n: 1, c: [v.c[i]] };
@@ -992,6 +1067,37 @@ function vparse(src, ctx) {
       const args = isOp(')') ? (p++, []) : list(')'), flat = [];
       args.forEach(a => flat.push(...a.c));
       const need = (k, w) => { if (args.length !== k) throw new Error(w + ' takes ' + k + ' arguments'); };
+      if (name === 'complex') { need(2, 'complex'); return cxv(one(args[0], 'complex'), one(args[1], 'complex')); }
+      if (name === 'polar') { need(2, 'polar'); const r = w2(one(args[0], 'polar')), th = one(args[1], 'polar').s; return cxv(P2(r + '*cos(' + th + ')'), P2(r + '*sin(' + th + ')')); }
+      if (name === 're' || name === 'im') {
+        need(1, name); const a = args[0];
+        if (a.cx) return { n: 1, c: [a.c[name === 're' ? 0 : 1]] };
+        if (a.n !== 1) throw new Error(name + ' takes a complex number');
+        return name === 're' ? a : S('0', 5);
+      }
+      if (name === 'conj') { need(1, 'conj'); const a = toC(args[0], 'conj'); return cxv(a.c[0], { s: '-' + R(a.c[1], 2), p: 3 }); }
+      if (name === 'arg') { need(1, 'arg'); return S(ang(toC(args[0], 'arg')), 5); }
+      if (args.some(a => a.cx)) {
+        if (name === 'abs' || name === 'norm' || name === 'mag') { need(1, name); return S(rad(args[0]), 5); }
+        if (name === 'pow') { need(2, 'pow'); return cpow(toC(args[0], 'pow'), toC(args[1], 'pow')); }
+        if (name === 'ifelse' && args.length === 3) {
+          const cond = one(args[0], 'ifelse').s, A = toC(args[1], 'ifelse'), B = toC(args[2], 'ifelse');
+          return cxv({ s: 'ifelse(' + cond + ', ' + A.c[0].s + ', ' + B.c[0].s + ')', p: 5 }, { s: 'ifelse(' + cond + ', ' + A.c[1].s + ', ' + B.c[1].s + ')', p: 5 });
+        }
+        if ((name === 'integral' || name === 'D') && args[0].cx) {
+          const rest = args.slice(1).map(a => one(a, name).s);
+          return cxv({ s: name + '(' + [args[0].c[0].s].concat(rest).join(', ') + ')', p: 5 }, { s: name + '(' + [args[0].c[1].s].concat(rest).join(', ') + ')', p: 5 });
+        }
+        if (['Dx', 'Dy', 'Dxx', 'Dyy', 'lap'].includes(name) && args.length === 1 && args[0].cx) {
+          return { n: 2, cx: true, c: args[0].c.map(c => { const u = c.s; if (!RE_FNAME.test(u)) throw new Error(name + ' needs a field name'); return name === 'lap' ? { s: 'Dxx(' + u + ') + Dyy(' + u + ')', p: 1 } : { s: name + '(' + u + ')', p: 5 }; }) };
+        }
+        if (name === 'sample' && args.length === 3 && args[0].cx) {
+          const rest = args.slice(1).map(a => one(a, 'sample').s).join(', ');
+          return { n: 2, cx: true, c: args[0].c.map(c => ({ s: 'sample(' + c.s + ', ' + rest + ')', p: 5 })) };
+        }
+        if (args.length === 1 && !ctx.vfns.has(name) && has(FUNCS, name)) return cfun(name, args[0]);
+        if (!ctx.vfns.has(name) && !ctx.vecs.has(name)) throw new Error(name + ' does not take complex numbers');
+      }
       if (name === 'dot') {
         need(2, 'dot'); if (args[0].n !== args[1].n) throw new Error('dot needs vectors of the same size');
         return S(args[0].c.map((c, i) => wrap(c, 2) + '*' + wrap(args[1].c[i], 2)).join(' + '), args[0].n > 1 ? 1 : 2);
@@ -1054,11 +1160,13 @@ function vparse(src, ctx) {
         return S('acos((' + dab + ')/(' + lenStr(a) + '*' + lenStr(b) + '))', 5);
       }
       const argStr = flat.map(c => c.s).join(', ');
-      if (ctx.vfns.has(name)) { const n = ctx.vfns.get(name); return { n, c: Array.from({ length: n }, (_, i) => ({ s: vcomp(name, i, n) + '(' + argStr + ')', p: 5 })) }; }
+      if (ctx.vfns.has(name)) { const n = ctx.vfns.get(name); return { n, cx: ctx.cxfns.has(name), c: Array.from({ length: n }, (_, i) => ({ s: vcomp(name, i, n) + '(' + argStr + ')', p: 5 })) }; }
       if (has(FUNCS, name) && flat.length !== args.length) throw new Error(name + '() needs single numbers. Use norm(v) for a length or v.x for a component');
       return S(name + '(' + argStr + ')', 5);
     }
     const base = name.replace(/'+$/, ''), pr = name.slice(base.length);
+    if (ctx.cxs.has(base)) return cxv({ s: vcomp(base, 0, 2, true) + pr, p: 5 }, { s: vcomp(base, 1, 2, true) + pr, p: 5 });
+    if (!pr && ctx.imag.has(name)) return cxv({ s: '0', p: 5 }, { s: '1', p: 5 });
     if (ctx.vecs.has(base)) { const n = ctx.vecs.get(base); return { n, c: Array.from({ length: n }, (_, i) => ({ s: vcomp(base, i, n) + pr, p: 5 })) }; }
     return S(name, 5);
   }
@@ -1068,8 +1176,19 @@ function vparse(src, ctx) {
 }
 
 function expandAll(T) {
-  const errs = [], vecs = new Map(), vfns = new Map(), ctx = { vecs, vfns };
+  const errs = [], vecs = new Map(), vfns = new Map(), ctx = { vecs, vfns, cxs: new Set(), cxfns: new Set(), imag: new Set() };
   const add = (k, line, msg) => errs.push({ k, line, msg });
+  {
+    // i and j are the imaginary unit unless the model defines a variable, field or function argument with that name
+    const defined = new Set();
+    for (const k of ['params', 'ic', 'eq', 'fields', 'funcs']) for (const L of cleanLines(T[k] || '')) {
+      if (/^(scalar|vector|complex)\b/i.test(L.s)) { for (const m of L.s.matchAll(RE_VID)) defined.add(m[0]); continue; }
+      const q = L.s.indexOf('=');
+      if (q < 0 || /^stop\s*:/i.test(L.s)) continue;
+      for (const m of L.s.slice(0, q).matchAll(RE_VID)) defined.add(m[0].replace(/'+$/, ''));
+    }
+    for (const nm of ['i', 'j']) if (!defined.has(nm)) ctx.imag.add(nm);
+  }
   for (const L of cleanLines(T.funcs || '')) {
     const q = L.s.indexOf('=');
     if (q < 0) continue;
@@ -1077,10 +1196,15 @@ function expandAll(T) {
     let rt = null;
     try { rt = m && rhsTuple(L.s.slice(q + 1).trim()); } catch (e) { rt = null; }
     if (rt && rt.length > 1) vfns.set(m[1], rt.length);
+    else if (m && needsV(L.s.slice(q + 1).trim(), ctx, true)) {
+      try { if (vparse(L.s.slice(q + 1).trim(), ctx).cx) { vfns.set(m[1], 2); ctx.cxfns.add(m[1]); } } catch (e) { /* reported later */ }
+    }
   }
   for (const L of cleanLines(T.fields || '')) {
-    const m = /^(scalar|vector)\b\s*(.*)$/i.exec(L.s);
-    if (!m || m[1].toLowerCase() !== 'vector') continue;
+    const m = /^(scalar|vector|complex)\b\s*(.*)$/i.exec(L.s);
+    if (!m) continue;
+    if (m[1].toLowerCase() === 'complex') { for (const item of splitTop(m[2])) { const mm = RE_FDECL.exec(item.trim()); if (mm) ctx.cxs.add(mm[1]); } continue; }
+    if (m[1].toLowerCase() !== 'vector') continue;
     for (const item of splitTop(m[2])) {
       const mm = RE_FDECL.exec(item.trim());
       if (!mm) continue;
@@ -1091,9 +1215,9 @@ function expandAll(T) {
   function splitLhs(lhs) {
     lhs = lhs.trim();
     let m = RE_LHS1.exec(lhs);
-    if (m) return { base: m[1], mk: (i, n) => vcomp(m[1], i, n) + m[2] + (m[3] ? '(0)' : '') };
+    if (m) return { base: m[1], mk: (i, n) => vcomp(m[1], i, n, ctx.cxs.has(m[1])) + m[2] + (m[3] ? '(0)' : '') };
     m = RE_ODE2.exec(lhs.replace(/[\s^]/g, ''));
-    if (m) return { base: m[2], mk: (i, n) => 'd' + m[1] + '(' + vcomp(m[2], i, n) + ')/d(' + m[3] + ')' };
+    if (m) return { base: m[2], mk: (i, n) => 'd' + m[1] + '(' + vcomp(m[2], i, n, ctx.cxs.has(m[2])) + ')/d(' + m[3] + ')' };
     return null;
   }
   const lines = [];
@@ -1105,15 +1229,16 @@ function expandAll(T) {
       const q = L.s.indexOf('=');
       if (q < 0) continue;
       const lh = splitLhs(L.s.slice(0, q));
-      if (!lh || vecs.has(lh.base)) continue;
+      if (!lh || vecs.has(lh.base) || ctx.cxs.has(lh.base)) continue;
       const rhs = L.s.slice(q + 1).trim();
       if (!needsV(rhs, ctx)) continue;
-      try { const v = vparse(rhs, ctx); if (v.n > 1) { vecs.set(lh.base, v.n); changed = true; } } catch (e) { /* reported later */ }
+      try { const v = vparse(rhs, ctx); if (v.cx) { ctx.cxs.add(lh.base); changed = true; } else if (v.n > 1) { vecs.set(lh.base, v.n); changed = true; } } catch (e) { /* reported later */ }
     }
     if (!changed) break;
   }
   const vscal = (src, what) => {
     const v = vparse(src, ctx);
+    if (v.cx) throw new Error((what ? "'" + what + "' is a single real number but the" : 'The') + ' value is a complex number. Use re(z), im(z) or abs(z)');
     if (v.n !== 1) throw new Error((what ? "'" + what + "' is a single number but the" : 'The') + ' value has ' + v.n + ' components');
     return v.c[0].s;
   };
@@ -1137,9 +1262,11 @@ function expandAll(T) {
     const q = part.indexOf('=');
     if (q < 0) return [part];
     const lhs = part.slice(0, q).trim(), rhs = part.slice(q + 1).trim();
-    const lh = splitLhs(lhs), n = lh && vecs.has(lh.base) ? vecs.get(lh.base) : 0;
+    const lh = splitLhs(lhs), isC = !!lh && ctx.cxs.has(lh.base), n = lh && vecs.has(lh.base) ? vecs.get(lh.base) : isC ? 2 : 0;
     if (!n) return [needsV(rhs, ctx) ? lhs + ' = ' + vscal(rhs, lhs) : part];
-    const v = RE_ZERO.test(rhs) ? zero(n) : vparse(rhs, ctx);
+    let v = RE_ZERO.test(rhs) ? zero(n) : vparse(rhs, ctx);
+    if (isC && !v.cx && v.n === 1) v = cxPromote(v);
+    if (isC !== !!v.cx) throw new Error("'" + lhs + "' is " + (isC ? 'complex' : 'a vector') + ' but the right side is ' + (v.cx ? 'complex' : 'a vector'));
     if (v.n !== n) throw new Error("'" + lhs + "' has " + n + ' components but the right side has ' + v.n);
     return v.c.map((c, i) => lh.mk(i, n) + ' = ' + c.s);
   };
@@ -1185,11 +1312,22 @@ function expandAll(T) {
       const sm = RE_SET.exec(st);
       if (!sm) { stmts.push(st); return; }
       const nm = sm[1], base = nm.replace(/'+$/, ''), prim = nm.slice(base.length), comp = sm[2], rhs = sm[3].trim();
+      if (ctx.cxs.has(base)) {
+        if (comp) {
+          const i = comp.toLowerCase() === 're' ? 0 : comp.toLowerCase() === 'im' ? 1 : -1;
+          if (i < 0) throw new Error("'" + nm + "' is complex: use ." + 're or .im');
+          stmts.push('set ' + vcomp(base, i, 2, true) + prim + ' to ' + vscal(rhs)); return;
+        }
+        const v = cxPromote(RE_ZERO.test(rhs) ? zero(2) : vparse(rhs, ctx));
+        if (!v.cx && v.n !== 1) throw new Error("'" + nm + "' is complex but the value is a vector");
+        v.c.forEach((c, i) => stmts.push('set ' + vcomp(base, i, 2, true) + prim + ' to ' + c.s));
+        return;
+      }
       if (vecs.has(base)) {
         const n = vecs.get(base);
         if (comp) {
           const i = VCOMP.indexOf(comp.toLowerCase());
-          if (i >= n) throw new Error("'" + nm + "' has no ." + comp);
+          if (i < 0 || i >= n) throw new Error("'" + nm + "' has no ." + comp);
           stmts.push('set ' + vcomp(base, i, n) + prim + ' to ' + vscal(rhs)); return;
         }
         const v = RE_ZERO.test(rhs) ? zero(n) : vparse(rhs, ctx);
@@ -1203,12 +1341,13 @@ function expandAll(T) {
     return [(m ? pre + (head ? ' ' + head : '') + ': ' : '') + stmts.join('; ')];
   };
   const fieldLine = part => {
-    let m = /^(scalar|vector)\b\s*(.*)$/i.exec(part);
+    let m = /^(scalar|vector|complex)\b\s*(.*)$/i.exec(part);
     if (m) {
-      const out = [], isVec = m[1].toLowerCase() === 'vector';
+      const out = [], isVec = m[1].toLowerCase() === 'vector', isCx = m[1].toLowerCase() === 'complex';
       splitTop(m[2]).forEach(item => {
         const mm = RE_FDECL.exec(item.trim());
-        if (!mm) throw new Error("Cannot read '" + item + "'. Write scalar u, v or vector E, B");
+        if (!mm) throw new Error("Cannot read '" + item + "'. Write scalar u, v, complex psi or vector E, B");
+        if (isCx) { out.push(vcomp(mm[1], 0, 2, true), vcomp(mm[1], 1, 2, true)); return; }
         const n = isVec ? (mm[2] ? +mm[2] : 3) : 1;
         if (n < 1 || n > 3) throw new Error('A vector field has 2 or 3 components');
         if (n > 1) for (let i = 0; i < n; i++) out.push(vcomp(mm[1], i, n)); else out.push(mm[1]);
@@ -1228,7 +1367,7 @@ function expandAll(T) {
   T2.eq = run('eq', T.eq, assign);
   T2.draw = run('draw', T.draw, drawLine);
   T2.acts = run('acts', T.acts, actLine, true);
-  return { T: T2, errs, vecs };
+  return { T: T2, errs, vecs, cxs: ctx.cxs, imag: ctx.imag };
 }
 
 // ---------- fields on a grid (PDEs) ----------
@@ -1886,7 +2025,7 @@ function buildModel(T0) {
     model: {
       ind, stateNames, helperNames, seriesNames, serIdx, nS, nP, nH, pBase, hBase, env, f, snapshot, helperFns,
       params: params.map((p, j) => ({ name: p.name, src: p.src, slot: pBase + j, value: env[pBase + j] })),
-      ic, icParams, draws, stopFn, fields: fieldDefs, shades: shadeDefs, viewBox, events, buttons, fld, vecs: X.vecs
+      ic, icParams, draws, stopFn, fields: fieldDefs, shades: shadeDefs, viewBox, events, buttons, fld, vecs: X.vecs, cxs: X.cxs
     }
   };
 }
@@ -2578,6 +2717,163 @@ const PRESET_JSON = [
       "v = (Dy(psi), -Dx(psi))"
     ],
     "settings": {"dt":0.005,"speed":1,"window":0,"trail":0,"joinPoints":false,"view":"auto","cameraBox":null,"fieldView":{"show":"b","arrows":true,"range":0},"show":["T"],"phase":["t","A1_x"],"fields":{}}
+  },
+  {
+    "id": "complex-plane",
+    "name": "Complex numbers: spiral, log, root and a contour integral",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "z' = a*z",
+      "",
+      "q = exp(i*t)",
+      "L = ln(q)",
+      "r = sqrt(q)",
+      "",
+      "# integral of dz/z around the circle |z| = 2, as it is traced:",
+      "I = integral(2*i*exp(i*s)/(2*exp(i*s)), s, 0, t)"
+    ],
+    "functions": [],
+    "parameters": [
+      "a = -0.15 + 2*i"
+    ],
+    "initial": [
+      "z = 3"
+    ],
+    "draw": [
+      "z: z",
+      "unit circle: q",
+      "root: r"
+    ],
+    "actions": [],
+    "fields": [],
+    "settings": {
+      "dt": 0.01,
+      "speed": 1,
+      "window": 12,
+      "trail": 4,
+      "joinPoints": false,
+      "show": [
+        "I_im",
+        "L_im",
+        "z_re"
+      ],
+      "phase": [
+        "z_re",
+        "z_im"
+      ]
+    }
+  },
+  {
+    "id": "schrodinger",
+    "name": "Quantum mechanics: wave packet through a double slit (complex field)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "P = fsum(rho)"
+    ],
+    "functions": [],
+    "parameters": [],
+    "initial": [],
+    "draw": [],
+    "actions": [],
+    "fields": [
+      "grid 100 x 100 on -10..10, -10..10",
+      "boundary absorb 10 6",
+      "complex psi",
+      "",
+      "# i dpsi/dt = -1/2 lap(psi) + V psi, with a wall at x = 2 that has two slits",
+      "init psi = exp(-((x + 6)^2 + y^2)/2)*exp(i*4*x)",
+      "",
+      "psi' = i*(0.5*lap(psi) - V*psi)",
+      "",
+      "V = 60*ifelse(abs(x - 2) < 0.3, ifelse(abs(abs(y) - 1.6) < 0.6, 0, 1), 0)",
+      "rho = abs(psi)^2"
+    ],
+    "settings": {
+      "dt": 0.005,
+      "speed": 1,
+      "window": 0,
+      "trail": 0,
+      "joinPoints": false,
+      "fieldView": {
+        "show": "rho",
+        "arrows": false,
+        "range": 0.4
+      },
+      "show": [
+        "P"
+      ],
+      "phase": [
+        "t",
+        "P"
+      ]
+    }
+  },
+  {
+    "id": "schrodinger-observed",
+    "name": "Quantum mechanics: observing the electron at a slit (collapse)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "P = fsum(rho)",
+      "",
+      "# the detector fires once, at t = tm, and only if it is switched on",
+      "pulse = det*ifelse(t > tm, ifelse(t < tm + 0.06, 1, 0), 0)"
+    ],
+    "functions": [],
+    "parameters": [
+      "det = 1",
+      "yd = 1.6",
+      "tm = 2.2",
+      "kap = 60"
+    ],
+    "initial": [],
+    "draw": [
+      "detector: 2, yd"
+    ],
+    "actions": [
+      "action Detector on: set det to 1",
+      "action Detector off: set det to 0",
+      "action Found in upper slit: set yd to 1.6",
+      "action Found in lower slit: set yd to -1.6"
+    ],
+    "fields": [
+      "grid 100 x 100 on -10..10, -10..10",
+      "boundary absorb 10 6",
+      "complex psi",
+      "",
+      "# Same double slit as the other example. At t = tm a detector looks at the slit at height yd",
+      "# and finds the electron there: everything outside that spot is wiped out quickly (collapse).",
+      "# Press the buttons before t = tm (they last until Reset). rn is the density scaled back to total 1.",
+      "init psi = exp(-((x + 6)^2 + y^2)/2)*exp(i*4*x)",
+      "",
+      "psi' = i*(0.5*lap(psi) - V*psi) - kap*pulse*(1 - W)*psi",
+      "",
+      "V = 60*ifelse(abs(x - 2) < 0.3, ifelse(abs(abs(y) - 1.6) < 0.6, 0, 1), 0)",
+      "W = exp(-((x - 2)^2 + (y - yd)^2)/0.8)",
+      "rho = abs(psi)^2",
+      "rn = rho/(P + 0.000001)"
+    ],
+    "settings": {
+      "dt": 0.005,
+      "speed": 1,
+      "window": 0,
+      "trail": 0,
+      "joinPoints": false,
+      "fieldView": {
+        "show": "rn",
+        "arrows": false,
+        "range": 0
+      },
+      "show": [
+        "P"
+      ],
+      "phase": [
+        "t",
+        "P"
+      ]
+    }
   }
 ];
 
@@ -2606,7 +2902,7 @@ const GREEK = {};
 GREEK.th = '\\theta'; GREEK.ph = '\\phi'; GREEK.om = '\\omega';
 let TEXDIFF = null;
 const TEX_DEF = { vec: 'arrow', norm: 'dbl', pd: 'frac', lap: 'nabla' };
-let TEXO = TEX_DEF, TEXVEC = new Map();
+let TEXO = TEX_DEF, TEXVEC = new Map(), TEXIMAG = new Set();
 const VEC_FNS = new Set(['grad', 'curl', 'cross', 'unit', 'perp', 'rot', 'proj']);
 const CONST_TEX = { pi: '\\pi', e: '\\mathrm{e}', tau: '\\tau' };
 const TRIG = new Set(['sin', 'cos', 'tan', 'sinh', 'cosh', 'tanh']);
@@ -2650,7 +2946,7 @@ function numTex(s) {
 }
 
 function parseAst(src) {
-  const toks = tokenize(src.replace(/([\p{L}\p{N}_]+'*)\.([xyz])(?![\p{L}\p{N}_])/gu, '__comp($1, $2)'));
+  const toks = tokenize(src.replace(/([\p{L}\p{N}_]+'*)\.(x|y|z|re|im)(?![\p{L}\p{N}_])/gu, '__comp($1, $2)'));
   if (!toks.length) throw new Error('Empty expression');
   let p = 0;
   const isOp = v => p < toks.length && toks[p].t === 'op' && toks[p].v === v;
@@ -2758,6 +3054,10 @@ function callTex(n, lei) {
       default: return { s: normTex(A[0].s), p: 5 };
     }
   }
+  if (nA === 1 && (f === 're' || f === 'im' || f === 'arg')) return { s: f === 'arg' ? '\\arg' + paren(A[0].s) : '\\operatorname{' + (f === 're' ? 'Re' : 'Im') + '}' + paren(A[0].s), p: 4 };
+  if (nA === 1 && f === 'conj') return { s: '\\overline{' + A[0].s + '}', p: 5 };
+  if (nA === 2 && f === 'polar') return { s: wrapP(A[0], 2) + '\\,e^{\\mathrm{i}' + wrapP(A[1], 4) + '}', p: 2.5 };
+  if (nA === 2 && f === 'complex') return { s: A[0].s + ' + \\mathrm{i}\\,' + wrapP(A[1], 2), p: 1 };
   if (nA === 2 && (f === 'dot' || f === 'cross')) {
     const r2 = x => (x.p === 3 ? paren(x.s) : wrapP(x, 2));
     return { s: r2(A[0]) + (f === 'dot' ? ' \\cdot ' : ' \\times ') + r2(A[1]), p: 2 };
@@ -2796,6 +3096,7 @@ function texOf(n, lei) {
     case 'vec': return { s: '\\begin{pmatrix}' + n.c.map(c => texOf(c, lei).s).join(' \\\\ ') + '\\end{pmatrix}', p: 5 };
     case 'comp': {
       const b = n.e.k === 'id' ? idTex(n.e.name, lei, true) : texOf(n.e, lei);
+      if (n.c === 're' || n.c === 'im') return { s: '\\operatorname{' + (n.c === 're' ? 'Re' : 'Im') + '}' + paren(b.s), p: 4 };
       return { s: (b.p < 5 ? paren(b.s) : '{' + b.s + '}') + '_{' + n.c + '}', p: 5 };
     }
     case 'D': {
@@ -2808,6 +3109,7 @@ function texOf(n, lei) {
     case 'id':
       if (TEXDIFF && TEXDIFF.has(n.name)) return { s: '\\mathrm{d}' + TEXDIFF.get(n.name), p: 5 };
       if (n.name === 't') return { s: 't', p: 5 };
+      if (TEXIMAG.has(n.name)) return { s: '\\mathrm{i}', p: 5 };
       if (has(CONST_TEX, n.name)) return { s: CONST_TEX[n.name], p: 5 };
       return idTex(n.name, lei);
     case 'neg': {
@@ -2846,7 +3148,7 @@ function texModel(T0, leiFlag, optIn) {
   const opts = Object.assign({}, TEX_DEF, optIn || {});
   const xa = expandAll(T0), compact = opts.vec !== 'comp', hide = new Set(opts.hide || []);
   const T = compact ? T0 : xa.T;
-  TEXO = opts; TEXVEC = new Map(compact ? xa.vecs : []);
+  TEXO = opts; TEXVEC = new Map(compact ? xa.vecs : []); TEXIMAG = compact ? xa.imag : new Set();
   if (compact) for (const L of cleanLines(T0.fields || '')) {
     const m = /^vector\s+(.+)$/i.exec(L.s);
     if (m) m[1].split(/[\s,]+/).filter(w => w && !/^\d+$/.test(w)).forEach(w => TEXVEC.set(w, 2));
@@ -2941,7 +3243,7 @@ function texModel(T0, leiFlag, optIn) {
       curRaw = a.head + ': ' + a.stmts.join('; ');
       const stm = a.stmts.map(st => {
         if (/^stop$/i.test(st)) return '\\text{stop}';
-        const mm = new RegExp('^set\\s+(' + NAME + "'*)(\\.[xyz])?\\s*(?:=|to\\b)\\s*(.+)$", 'iu').exec(st), r = mm && expr(mm[3]);
+        const mm = new RegExp('^set\\s+(' + NAME + "'*)(\\.(?:x|y|z|re|im))?\\s*(?:=|to\\b)\\s*(.+)$", 'iu').exec(st), r = mm && expr(mm[3]);
         if (!r) return null;
         const tgt = mm[2] ? expr(mm[1] + mm[2]) : { s: idTex(mm[1], false).s };
         return tgt ? tgt.s + ' \\leftarrow ' + r.s : null;
@@ -2955,7 +3257,7 @@ function texModel(T0, leiFlag, optIn) {
     for (const L of cleanLines(T.fields || '')) {
       let m; curRaw = L.s;
       if ((m = /^init\s+(\S+?)\s*=\s*(.+)$/i.exec(L.s))) { const r = expr(m[2]); if (r) fieldItems.push(item(idTex(m[1], false).s + '(x, y, 0)', r.s)); continue; }
-      if (/^(grid|boundary|scalar|vector)\b/i.test(L.s)) continue;
+      if (/^(grid|boundary|scalar|vector|complex)\b/i.test(L.s)) continue;
       const k = L.s.indexOf('=');
       if (k < 0) continue;
       const lhs = attempt(() => parseLhs(L.s.slice(0, k))), r = expr(L.s.slice(k + 1));
@@ -2963,7 +3265,7 @@ function texModel(T0, leiFlag, optIn) {
       if (lhs.kind === 'ode') fieldItems.push(item(pdTex({ s: nameTex(lhs.name), p: 5 }, 't', lhs.order).s, r.s));
       else fieldItems.push(item(nameTex(lhs.name), r.s));
     }
-  } finally { TEXDIFF = null; TEXO = TEX_DEF; TEXVEC = new Map(); }
+  } finally { TEXDIFF = null; TEXO = TEX_DEF; TEXVEC = new Map(); TEXIMAG = new Set(); }
 
   const sections = [
     { id: 'eq', title: 'Equations', items: eqs.concat(implicit, stops) },
@@ -3747,7 +4049,19 @@ function buildFieldSel() {
   const keep = (fvOpts[els.fvSel.selectedIndex] || {}).label;
   fvOpts = [];
   const seen = new Set(), vecs = model.vecs || new Map();
+  const cxs = model.cxs || new Set();
   g.names.forEach((n, k) => {
+    const cm = /^(.*)_(re|im)$/.exec(n);
+    if (cm && cxs.has(cm[1])) {
+      if (seen.has(cm[1] + '#')) return;
+      seen.add(cm[1] + '#');
+      const kr = g.idx.get(vcomp(cm[1], 0, 2, true)), ki = g.idx.get(vcomp(cm[1], 1, 2, true));
+      if (kr === undefined || ki === undefined) { fvOpts.push({ label: n, ks: [k], group: null }); return; }
+      fvOpts.push({ label: '|' + cm[1] + '|', mag: true, ks: [kr, ki], group: null });
+      fvOpts.push({ label: 'arg ' + cm[1], mag: true, phase: true, ks: [kr, ki], group: null });
+      fvOpts.push({ label: g.names[kr], ks: [kr], group: null }, { label: g.names[ki], ks: [ki], group: null });
+      return;
+    }
     const mm = /^(.*)_([xyz])$/.exec(n), isV = !!(mm && vecs.has(mm[1]));
     if (isV && !seen.has(mm[1])) {
       seen.add(mm[1]);
@@ -3789,6 +4103,11 @@ function fvValues(opt, N) {
   for (let c = 0; c < N; c++) { let q = 0; for (let a = 0; a < A.length; a++) q += A[a][c] * A[a][c]; fvBuf[c] = Math.sqrt(q); }
   return fvBuf;
 }
+function hueRgb(a) {
+  const h = (((a / (2 * Math.PI)) % 1) + 1) % 1 * 6, x = 1 - Math.abs((h % 2) - 1), q = Math.floor(h);
+  const c = [[1, x, 0], [x, 1, 0], [0, 1, x], [0, x, 1], [x, 0, 1], [1, 0, x]][q % 6];
+  return [60 + 180 * c[0], 60 + 180 * c[1], 60 + 180 * c[2]];
+}
 function drawFieldLayer(ctx, W, H, S, sx, sy) {
   const g = model.fld, opt = fvOpts[els.fvSel.selectedIndex];
   if (!g || !opt || !FRT.arr.length || FRT.arr[0].length !== g.nx * g.ny) return null;
@@ -3802,17 +4121,18 @@ function drawFieldLayer(ctx, W, H, S, sx, sy) {
   if (!fvOff || fvOff.width !== g.nx || fvOff.height !== g.ny) { fvOff = document.createElement('canvas'); fvOff.width = g.nx; fvOff.height = g.ny; }
   const octx = fvOff.getContext('2d'), img = octx.createImageData(g.nx, g.ny), d = img.data;
   const bg = hexRgb(theme.sunk, [233, 238, 244]), cp = hexRgb(theme.series[0], [45, 107, 221]), cn = hexRgb(theme.series[1], [224, 112, 26]);
+  const ph = opt.phase ? [FRT.arr[opt.ks[0]], FRT.arr[opt.ks[1]]] : null;
   for (let j = 0; j < g.ny; j++) {
     const row = (g.ny - 1 - j) * g.nx;
     for (let i = 0; i < g.nx; i++) {
-      const v = vals[j * g.nx + i], a = Math.min(1, Math.pow(Math.abs(v) / sc, 0.8)), col = v >= 0 ? cp : cn, o = (row + i) * 4;
+      const v = vals[j * g.nx + i], a = Math.min(1, Math.pow(Math.abs(v) / sc, 0.8)), col = ph ? hueRgb(Math.atan2(ph[1][j * g.nx + i], ph[0][j * g.nx + i])) : v >= 0 ? cp : cn, o = (row + i) * 4;
       d[o] = bg[0] + (col[0] - bg[0]) * a; d[o + 1] = bg[1] + (col[1] - bg[1]) * a; d[o + 2] = bg[2] + (col[2] - bg[2]) * a; d[o + 3] = 255;
     }
   }
   octx.putImageData(img, 0, 0);
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(fvOff, sx(g.x0 - g.dx / 2), sy(g.y1 + g.dy / 2), (g.x1 - g.x0 + g.dx) * S, (g.y1 - g.y0 + g.dy) * S);
-  sceneNotes.push(opt.label + (opt.mag ? ': 0 to ' : ': blue +, orange -, max ') + fmtVal(sc));
+  sceneNotes.push(opt.phase ? opt.label + ': colour = phase, brightness up to ' + fmtVal(sc) : opt.label + (opt.mag ? ': 0 to ' : ': blue +, orange -, max ') + fmtVal(sc));
   if (els.fvArrows.checked && opt.group && opt.group.length >= 2) {
     const ax = FRT.arr[opt.group[0]], ay = FRT.arr[opt.group[1]], st = Math.max(1, Math.ceil(24 / (g.dx * S))), pts = [];
     let mx = 0;
