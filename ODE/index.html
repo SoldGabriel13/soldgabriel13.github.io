@@ -1391,24 +1391,27 @@ function fieldDeriv(k, op) {
   }
 }
 function fieldSample(k, px, py) {
-  if (GPUHOOK.sync) GPUHOOK.sync(k);
   const a = FRT.arr[k];
   if (!a) return 0;
   const fx = (px - FRT.x0) / FRT.dx, fy = (py - FRT.y0) / FRT.dy, nx = FRT.nx, ny = FRT.ny;
   if (!(fx >= -1e-9 && fy >= -1e-9 && fx <= nx - 1 + 1e-9 && fy <= ny - 1 + 1e-9)) return 0;
   const i0 = Math.min(nx - 2, Math.max(0, Math.floor(fx))), j0 = Math.min(ny - 2, Math.max(0, Math.floor(fy)));
-  if (nx < 2 || ny < 2) return a[0];
-  const u = fx - i0, v = fy - j0, r0 = j0 * nx + i0, r1 = r0 + nx;
+  if (nx < 2 || ny < 2) { if (GPUHOOK.sync) GPUHOOK.sync(k); return a[0]; }
+  const u = fx - i0, v = fy - j0;
+  if (GPUHOOK.win) { const w = GPUHOOK.win(k, i0, j0, u, v); if (w !== undefined) return w; }
+  if (GPUHOOK.sync) GPUHOOK.sync(k);
+  const r0 = j0 * nx + i0, r1 = r0 + nx;
   return (a[r0] * (1 - u) + a[r0 + 1] * u) * (1 - v) + (a[r1] * (1 - u) + a[r1 + 1] * u) * v;
 }
 function fieldReduce(k, isSum) {
-  if (GPUHOOK.sync) GPUHOOK.sync(k);
-  const a = FRT.arr[k];
-  if (!a) return 0;
+  if (!FRT.arr[k]) return 0;
   const c = FRT.sums;
   if (c.step !== FRT.step) { c.step = FRT.step; c.v = new Map(); }
   const key = k + (isSum ? 's' : 'm');
   if (c.v.has(key)) return c.v.get(key);
+  if (GPUHOOK.red) { const q = GPUHOOK.red(k, isSum); if (q !== undefined) { c.v.set(key, q); return q; } }
+  if (GPUHOOK.sync) GPUHOOK.sync(k);
+  const a = FRT.arr[k];
   let r = 0;
   if (isSum) { for (let q = 0; q < a.length; q++) r += a[q]; r *= FRT.dx * FRT.dy; }
   else for (let q = 0; q < a.length; q++) { const v = Math.abs(a[q]); if (v > r) r = v; }
@@ -1531,7 +1534,7 @@ function fieldStep(m, t, y, h) {
 }
 
 // ---------- GPU plan: field equations compiled to GLSL ----------
-const GPUHOOK = { sync: null, auth: 'cpu' };
+const GPUHOOK = { sync: null, win: null, red: null, auth: 'cpu' };
 const GL_FN1 = { sin: 'sin', cos: 'cos', tan: 'tan', asin: 'asin', acos: 'acos', atan: 'atan', sinh: 'sinh', cosh: 'cosh', tanh: 'tanh', exp: 'exp', log: 'log', ln: 'log', log2: 'log2', sqrt: 'sqrt', abs: 'abs', sign: 'sign', floor: 'floor', ceil: 'ceil' };
 function glLit(v) { let s = String(v); if (!/[.eE]/.test(s)) s += '.0'; return '(' + s + ')'; }
 // Same grammar as compileExpr, but it returns GLSL text. Throws when something cannot run on the GPU.
@@ -3752,7 +3755,7 @@ function advanceCore(n, gpu) {
 }
 
 // ---------- GPU runtime (WebGL2): the field equations run as fragment shaders, with the same fixed dt ----------
-const GPU = { on: false, want: true, gl: null, bad: '', vs: null, vao: null, progs: new Map(), plan: null, tex: null, cur: null, fbo: null, ubo: null, ef: null, rb: null, sig: '', ms: 0.3, frames: 0, note: '', bound: false, cms: 0, hot: new Set(), inAdv: false, pack: null, packTex: null, packFbo: null, packKey: '', packBuf: null, shown: 0 };
+const GPU = { on: false, want: true, gl: null, bad: '', vs: null, vao: null, progs: new Map(), plan: null, tex: null, cur: null, fbo: null, ubo: null, ef: null, rb: null, sig: '', ms: 0.3, frames: 0, note: '', bound: false, cms: 0, hot: new Set(), inAdv: false, pack: null, packTex: null, packFbo: null, packKey: '', packBuf: null, shown: 0, reqP: new Set(), reqF: new Set(), reqR: new Set(), reqOver: false, over: false, win: null, red: null, pw: null, pr: null };
 function gpuContext() {
   if (GPU.gl || GPU.bad) return GPU.gl;
   try {
@@ -3798,6 +3801,7 @@ function gpuDrop() {
   const gl = GPU.gl;
   if (gl && GPU.tex) { GPU.tex.forEach(p => p.forEach(t => gl.deleteTexture(t))); GPU.fbo.forEach(p => p.forEach(f => gl.deleteFramebuffer(f))); }
   GPU.tex = null; GPU.fbo = null; GPU.cur = null; GPU.sig = ''; GPU.bound = false; GPU.hot.clear(); GPU.packKey = '';
+  gpuProbeDrop();
 }
 function gpuAttach(m) {
   const wasGpu = GPUHOOK.auth === 'gpu';
@@ -3858,14 +3862,14 @@ function gpuUpload(m) {
       gl.bindTexture(gl.TEXTURE_2D, GPU.tex[k][GPU.cur[k]]);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, g.nx, g.ny, gl.RGBA, gl.FLOAT, buf);
     }
-    GPU.bound = false; GPU.hot.clear();
+    GPU.bound = false; GPU.hot.clear(); gpuProbeReset();
     GPUHOOK.auth = 'gpu';
     if (FRT.dirty) FRT.dirty.fill(0);
   } catch (e) { GPU.on = false; GPU.note = 'on the CPU: ' + e.message; GPUHOOK.auth = 'cpu'; gpuNote(); }
 }
-function gpuSync(k) {
+function gpuSync(k, soft) {
   if (GPUHOOK.auth !== 'gpu' || !FRT.dirty || !FRT.dirty[k] || !GPU.tex) return;
-  if (GPU.inAdv) GPU.hot.add(k);
+  if (GPU.inAdv && !soft) GPU.hot.add(k);
   const gl = GPU.gl, N = FRT.nx * FRT.ny, buf = GPU.rb, a = FRT.arr[k];
   gl.bindFramebuffer(gl.FRAMEBUFFER, GPU.fbo[k][GPU.cur[k]]);
   gl.readPixels(0, 0, FRT.nx, FRT.ny, gl.RGBA, gl.FLOAT, buf);
@@ -3914,6 +3918,136 @@ function gpuPrefetch(m) {
   });
   if (bad) FRT.bad = true;
 }
+// ---- small probes: sample() reads a few cells and fsum()/fmax() are reduced on the GPU, so the whole field is not copied back every step ----
+const PW = 8, PMAX = 64, PHDR = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
+function gpuProbeReset() { GPU.reqP.clear(); GPU.reqF.clear(); GPU.reqR.clear(); GPU.reqOver = false; GPU.over = false; GPU.win = null; GPU.red = null; }
+function gpuProbeDrop() {
+  const gl = GPU.gl;
+  if (gl && GPU.pw) { for (const r of [GPU.pw.w, GPU.pw.r1, GPU.pw.r2]) if (r) { gl.deleteTexture(r.tx); gl.deleteFramebuffer(r.fb); } }
+  GPU.pw = null; gpuProbeReset();
+}
+GPUHOOK.win = (k, i0, j0, u, v) => {
+  if (GPUHOOK.auth !== 'gpu' || !FRT.dirty || !FRT.dirty[k] || !GPU.tex) return undefined;
+  const nx = FRT.nx, ny = FRT.ny;
+  if (nx < PW + 4 || ny < PW + 4) return undefined;
+  if (GPU.reqP.size >= PMAX) GPU.reqOver = true;
+  else { GPU.reqP.add(Math.max(0, Math.min(nx - PW, 2 * Math.floor((i0 - 2) / 2))) * 4096 + Math.max(0, Math.min(ny - PW, 2 * Math.floor((j0 - 2) / 2)))); GPU.reqF.add(k); }
+  const W = GPU.win;
+  if (W && W.step === FRT.step) {
+    const fi = W.fields.indexOf(k);
+    if (fi >= 0) for (let p = 0; p < W.orig.length; p++) {
+      const o = W.orig[p];
+      if (i0 >= o[0] && i0 + 1 < o[0] + PW && j0 >= o[1] && j0 + 1 < o[1] + PW) {
+        const base = (p * W.T + (fi >> 2)) * PW - o[0], ch = fi & 3, B = W.buf, Wt = W.W;
+        const at = (ii, jj) => B[((jj - o[1]) * Wt + base + ii) * 4 + ch];
+        return (at(i0, j0) * (1 - u) + at(i0 + 1, j0) * u) * (1 - v) + (at(i0, j0 + 1) * (1 - u) + at(i0 + 1, j0 + 1) * u) * v;
+      }
+    }
+  }
+  gpuSync(k, !GPU.over);
+  return undefined;
+};
+GPUHOOK.red = (k, isSum) => {
+  if (GPUHOOK.auth !== 'gpu' || !FRT.dirty || !FRT.dirty[k] || !GPU.tex) return undefined;
+  const key = k + (isSum ? 's' : 'm');
+  GPU.reqR.add(key);
+  const R = GPU.red;
+  if (R && R.step === FRT.step && R.vals.has(key)) return R.vals.get(key);
+  gpuSync(k, true);
+  return undefined;
+};
+function gpuRT(gl, w, h, unit) {
+  const tx = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, tx);
+  gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA32F, w, h);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  const fb = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tx, 0);
+  return { tx, fb, w, h };
+}
+function gpuProbe(m) {
+  const gl = GPU.gl, g = m.fld, nx = g.nx, ny = g.ny;
+  const fs = [...GPU.reqF].sort((a, b) => a - b), ps = [...GPU.reqP], rs = [...GPU.reqR].sort();
+  const over = GPU.reqOver;
+  gpuProbeReset(); GPU.over = over;
+  if (!GPU.pw) GPU.pw = { w: null, r1: null, r2: null, wk: '', rk: '' };
+  const PWS = GPU.pw;
+  let bad = false;
+  const jobs = [];
+  if (ps.length && fs.length && !over) {
+    const T = Math.ceil(fs.length / 4), nP = ps.length, cap = nP <= 4 ? 4 : nP <= 8 ? 8 : nP <= 16 ? 16 : nP <= 32 ? 32 : 64;
+    let src = PHDR + 'uniform ivec2 uN;\nuniform ivec2 uOrg[' + PMAX + '];\n';
+    fs.forEach(k => { src += 'uniform sampler2D uF' + k + ';\n'; });
+    src += 'out vec4 o;\nvoid main() {\n  ivec2 c = ivec2(gl_FragCoord.xy);\n  int tile = c.x / ' + PW + ';\n  int p = tile / ' + T + ';\n  int t = tile - p * ' + T + ';\n' +
+      '  ivec2 q = clamp(uOrg[p] + ivec2(c.x - tile * ' + PW + ', c.y), ivec2(0), uN - 1);\n  vec4 r = vec4(0.0);\n';
+    fs.forEach((k, i) => { src += '  if (t == ' + (i >> 2) + ') r[' + (i & 3) + '] = texelFetch(uF' + k + ', q, 0).r;\n'; });
+    src += '  o = r;\n}\n';
+    const P = gpuProgram(src);
+    if (P.uO === undefined) P.uO = gl.getUniformLocation(P.pr, 'uOrg[0]');
+    const wk = cap + 'x' + T;
+    if (PWS.wk !== wk) {
+      if (PWS.w) { gl.deleteTexture(PWS.w.tx); gl.deleteFramebuffer(PWS.w.fb); }
+      PWS.w = gpuRT(gl, PW * cap * T, PW, 15); PWS.w.buf = new Float32Array(PW * cap * T * PW * 4); PWS.wk = wk;
+    }
+    const org = new Int32Array(PMAX * 2), orig = [];
+    ps.forEach((v, p) => { const ox = Math.floor(v / 4096), oy = v % 4096; org[2 * p] = ox; org[2 * p + 1] = oy; orig.push([ox, oy]); });
+    jobs.push(() => {
+      gl.useProgram(P.pr); gl.uniform2i(P.uN, nx, ny); gl.uniform2iv(P.uO, org);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.w.fb); gl.viewport(0, 0, PW * nP * T, PW);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      return () => {
+        const Wd = PW * nP * T;
+        gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.w.fb);
+        gl.readPixels(0, 0, Wd, PW, gl.RGBA, gl.FLOAT, PWS.w.buf);
+        const B = PWS.w.buf;
+        for (let q = 0; q < Wd * PW * 4; q++) { const v = B[q]; if (!(v > -1e12 && v < 1e12)) { bad = true; break; } }
+        GPU.win = { step: FRT.step, fields: fs, orig, T, W: Wd, buf: B };
+      };
+    });
+  }
+  if (rs.length) {
+    const items = rs.map(s => ({ k: +s.slice(0, -1), sum: s.endsWith('s'), key: s })), nR = items.length, uk = [...new Set(items.map(i => i.k))];
+    let s1 = PHDR + 'uniform ivec2 uN;\n';
+    uk.forEach(k => { s1 += 'uniform sampler2D uF' + k + ';\n'; });
+    s1 += 'out vec4 o;\nvoid main() {\n  ivec2 c = ivec2(gl_FragCoord.xy);\n  float s = 0.0;\n';
+    items.forEach((it, h) => { s1 += '  if (c.x == ' + h + ') { for (int i = 0; i < uN.x; i++) { float v = texelFetch(uF' + it.k + ', ivec2(i, c.y), 0).r; s = ' + (it.sum ? 's + v' : 'max(s, abs(v))') + '; } }\n'; });
+    s1 += '  o = vec4(s, 0.0, 0.0, 1.0);\n}\n';
+    let s2 = PHDR + 'uniform ivec2 uN;\nuniform sampler2D uR1;\nout vec4 o;\nvoid main() {\n  ivec2 c = ivec2(gl_FragCoord.xy);\n  float s = 0.0;\n';
+    items.forEach((it, h) => { s2 += '  if (c.x == ' + h + ') { for (int j = 0; j < uN.y; j++) { float v = texelFetch(uR1, ivec2(c.x, j), 0).r; s = ' + (it.sum ? 's + v' : 'max(s, v)') + '; } }\n'; });
+    s2 += '  o = vec4(s, 0.0, 0.0, 1.0);\n}\n';
+    const P1 = gpuProgram(s1), P2 = gpuProgram(s2);
+    if (!P2.r1) { gl.useProgram(P2.pr); gl.uniform1i(gl.getUniformLocation(P2.pr, 'uR1'), 14); P2.r1 = true; }
+    const cap = nR <= 4 ? 4 : nR <= 8 ? 8 : nR <= 16 ? 16 : 32, rk = cap + 'x' + ny;
+    if (nR > 32) { items.length = 0; }
+    else {
+      if (PWS.rk !== rk) {
+        for (const r of [PWS.r1, PWS.r2]) if (r) { gl.deleteTexture(r.tx); gl.deleteFramebuffer(r.fb); }
+        PWS.r1 = gpuRT(gl, cap, ny, 14); PWS.r2 = gpuRT(gl, cap, 1, 15); PWS.r2.buf = new Float32Array(cap * 4); PWS.rk = rk;
+      }
+      jobs.push(() => {
+        gl.useProgram(P1.pr); gl.uniform2i(P1.uN, nx, ny);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.r1.fb); gl.viewport(0, 0, nR, ny); gl.drawArrays(gl.TRIANGLES, 0, 3);
+        gl.activeTexture(gl.TEXTURE0 + 14); gl.bindTexture(gl.TEXTURE_2D, PWS.r1.tx);
+        gl.useProgram(P2.pr); gl.uniform2i(P2.uN, nx, ny);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.r2.fb); gl.viewport(0, 0, nR, 1); gl.drawArrays(gl.TRIANGLES, 0, 3);
+        return () => {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.r2.fb);
+          gl.readPixels(0, 0, nR, 1, gl.RGBA, gl.FLOAT, PWS.r2.buf);
+          const vals = new Map();
+          items.forEach((it, h) => { const v = PWS.r2.buf[4 * h]; if (!(v > -1e30 && v < 1e30)) bad = true; vals.set(it.key, it.sum ? v * g.dx * g.dy : v); });
+          GPU.red = { step: FRT.step, vals };
+        };
+      });
+    }
+  }
+  if (!jobs.length) return;
+  gl.bindVertexArray(GPU.vao);
+  const reads = jobs.map(j => j());
+  reads.forEach(r => r());
+  gl.viewport(0, 0, nx, ny);
+  if (bad) FRT.bad = true;
+}
 function gpuStep(m, t, y, h) {
   const gl = GPU.gl, g = m.fld, plan = GPU.plan;
   if (GPUHOOK.auth !== 'gpu') { gpuUpload(m); if (!GPU.on) { fieldStep(m, t, y, h); return; } }
@@ -3944,6 +4078,7 @@ function gpuStep(m, t, y, h) {
   FRT.step++;
   env[0] = t + h;
   FRT.dirty.fill(1);
+  gpuProbe(m);
   if (GPU.hot.size) gpuPrefetch(m);
 }
 
