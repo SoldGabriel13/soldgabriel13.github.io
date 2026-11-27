@@ -386,7 +386,7 @@ U = 0.5*(dot(E, E) + c^2*dot(B, B))</pre>
         <div id="fieldBar" class="fbar" hidden>
           <label>Show <select id="fvSel" aria-label="Field to show"></select></label>
           <label><input type="checkbox" id="fvArrows"> Arrows</label>
-          <label title="Run the field equations on the graphics card"><input type="checkbox" id="gpuOn" checked> GPU</label><span id="gpuNote" class="hint"></span>
+          <label title="Run the field equations on the graphics card"><input type="checkbox" id="gpuOn" checked> GPU</label><label title="How the CPU side (particles, plots) reads the GPU field. Exact waits for the graphics card every step, which is slow. The other choices read results that are 1 or 3 steps old, which lets the card run ahead."> <select id="gpuLag"><option value="0">exact coupling</option><option value="1" selected>fast: 1 step behind</option><option value="3">fastest: 3 steps behind</option></select></label><span id="gpuNote" class="hint"></span>
           <label>Range <input id="fvScale" type="number" min="0" step="any" placeholder="auto" aria-label="Colour range, blank for automatic"></label>
         </div>
         <canvas id="scene" role="img" aria-label="Animated scene of the simulated system"></canvas>
@@ -3472,7 +3472,7 @@ const els = {
   dvCard: $('dvCard'), dv: $('dv'), dvA: $('dvA'), dvB: $('dvB'), dvX: $('dvX'), dvVal: $('dvVal'), dvTog: $('dvTog'), dvMat: $('dvMat'),
   viewSeg: $('viewSeg'), zoomBtns: $('zoomBtns'), zin: $('zin'), zout: $('zout'),
   ioOpen: $('ioOpen'), ioModal: $('ioModal'), ioText: $('ioText'), ioSave: $('ioSave'), ioCopy: $('ioCopy'), ioLoad: $('ioLoad'), ioClose: $('ioClose'), ioMsg: $('ioMsg'),
-  fields: $('fields'), fieldsErr: $('fieldsErr'), fieldBar: $('fieldBar'), fvSel: $('fvSel'), fvArrows: $('fvArrows'), fvScale: $('fvScale'), gpuOn: $('gpuOn'), gpuNote: $('gpuNote'),
+  fields: $('fields'), fieldsErr: $('fieldsErr'), fieldBar: $('fieldBar'), fvSel: $('fvSel'), fvArrows: $('fvArrows'), fvScale: $('fvScale'), gpuOn: $('gpuOn'), gpuLag: $('gpuLag'), gpuNote: $('gpuNote'),
   edToggle: $('edToggle'), resetLayout: $('resetLayout'), layout: $('layout')
 };
 const MONO = "'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace";
@@ -3755,7 +3755,7 @@ function advanceCore(n, gpu) {
 }
 
 // ---------- GPU runtime (WebGL2): the field equations run as fragment shaders, with the same fixed dt ----------
-const GPU = { on: false, want: true, gl: null, bad: '', vs: null, vao: null, progs: new Map(), plan: null, tex: null, cur: null, fbo: null, ubo: null, ef: null, rb: null, sig: '', ms: 0.3, frames: 0, note: '', bound: false, cms: 0, hot: new Set(), inAdv: false, pack: null, packTex: null, packFbo: null, packKey: '', packBuf: null, shown: 0, reqP: new Set(), reqF: new Set(), reqR: new Set(), reqOver: false, over: false, win: null, red: null, pw: null, pr: null };
+const GPU = { on: false, want: true, gl: null, bad: '', vs: null, vao: null, progs: new Map(), plan: null, tex: null, cur: null, fbo: null, ubo: null, ef: null, rb: null, sig: '', ms: 0.3, frames: 0, note: '', bound: false, cms: 0, hot: new Set(), inAdv: false, pack: null, packTex: null, packFbo: null, packKey: '', packBuf: null, shown: 0, reqP: new Set(), reqF: new Set(), reqR: new Set(), reqOver: false, over: false, win: null, red: null, pw: null, pr: null, lag: 1, q: [], pbo: new Map() };
 function gpuContext() {
   if (GPU.gl || GPU.bad) return GPU.gl;
   try {
@@ -3920,7 +3920,12 @@ function gpuPrefetch(m) {
 }
 // ---- small probes: sample() reads a few cells and fsum()/fmax() are reduced on the GPU, so the whole field is not copied back every step ----
 const PW = 8, PMAX = 64, PHDR = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
-function gpuProbeReset() { GPU.reqP.clear(); GPU.reqF.clear(); GPU.reqR.clear(); GPU.reqOver = false; GPU.over = false; GPU.win = null; GPU.red = null; }
+function gpuProbeReset() {
+  GPU.reqP.clear(); GPU.reqF.clear(); GPU.reqR.clear(); GPU.reqOver = false; GPU.over = false; GPU.win = null; GPU.red = null;
+  const gl = GPU.gl;
+  if (gl) { for (const e of GPU.q) for (const x of e) gl.deleteBuffer(x.pb); GPU.pbo.forEach(list => list.forEach(b => gl.deleteBuffer(b))); }
+  GPU.q = []; GPU.pbo.clear();
+}
 function gpuProbeDrop() {
   const gl = GPU.gl;
   if (gl && GPU.pw) { for (const r of [GPU.pw.w, GPU.pw.r1, GPU.pw.r2]) if (r) { gl.deleteTexture(r.tx); gl.deleteFramebuffer(r.fb); } }
@@ -3970,7 +3975,7 @@ function gpuProbe(m) {
   const gl = GPU.gl, g = m.fld, nx = g.nx, ny = g.ny;
   const fs = [...GPU.reqF].sort((a, b) => a - b), ps = [...GPU.reqP], rs = [...GPU.reqR].sort();
   const over = GPU.reqOver;
-  gpuProbeReset(); GPU.over = over;
+  GPU.reqP.clear(); GPU.reqF.clear(); GPU.reqR.clear(); GPU.reqOver = false; GPU.win = null; GPU.red = null; GPU.over = over;
   if (!GPU.pw) GPU.pw = { w: null, r1: null, r2: null, wk: '', rk: '' };
   const PWS = GPU.pw;
   let bad = false;
@@ -3996,13 +4001,13 @@ function gpuProbe(m) {
       gl.useProgram(P.pr); gl.uniform2i(P.uN, nx, ny); gl.uniform2iv(P.uO, org);
       gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.w.fb); gl.viewport(0, 0, PW * nP * T, PW);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      return () => {
-        const Wd = PW * nP * T;
-        gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.w.fb);
-        gl.readPixels(0, 0, Wd, PW, gl.RGBA, gl.FLOAT, PWS.w.buf);
-        const B = PWS.w.buf;
-        for (let q = 0; q < Wd * PW * 4; q++) { const v = B[q]; if (!(v > -1e12 && v < 1e12)) { bad = true; break; } }
-        GPU.win = { step: FRT.step, fields: fs, orig, T, W: Wd, buf: B };
+      const Wd = PW * nP * T, nn = Wd * PW * 4;
+      return {
+        fb: PWS.w.fb, w: Wd, h: PW, n: nn, id: 'w' + cap + 'x' + T, capN: PW * cap * T * PW * 4, buf: GPU.lag ? new Float32Array(nn) : PWS.w.buf,
+        apply: B => {
+          for (let q = 0; q < nn; q++) { const v = B[q]; if (!(v > -1e12 && v < 1e12)) { FRT.bad = true; break; } }
+          GPU.win = { step: FRT.step, fields: fs, orig, T, W: Wd, buf: B };
+        }
       };
     });
   }
@@ -4031,22 +4036,43 @@ function gpuProbe(m) {
         gl.activeTexture(gl.TEXTURE0 + 14); gl.bindTexture(gl.TEXTURE_2D, PWS.r1.tx);
         gl.useProgram(P2.pr); gl.uniform2i(P2.uN, nx, ny);
         gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.r2.fb); gl.viewport(0, 0, nR, 1); gl.drawArrays(gl.TRIANGLES, 0, 3);
-        return () => {
-          gl.bindFramebuffer(gl.FRAMEBUFFER, PWS.r2.fb);
-          gl.readPixels(0, 0, nR, 1, gl.RGBA, gl.FLOAT, PWS.r2.buf);
-          const vals = new Map();
-          items.forEach((it, h) => { const v = PWS.r2.buf[4 * h]; if (!(v > -1e30 && v < 1e30)) bad = true; vals.set(it.key, it.sum ? v * g.dx * g.dy : v); });
-          GPU.red = { step: FRT.step, vals };
+        return {
+          fb: PWS.r2.fb, w: nR, h: 1, n: nR * 4, id: 'r' + cap, capN: cap * 4, buf: GPU.lag ? new Float32Array(nR * 4) : PWS.r2.buf,
+          apply: B => {
+            const vals = new Map();
+            items.forEach((it, h) => { const v = B[4 * h]; if (!(v > -1e30 && v < 1e30)) FRT.bad = true; vals.set(it.key, it.sum ? v * g.dx * g.dy : v); });
+            GPU.red = { step: FRT.step, vals };
+          }
         };
       });
     }
   }
-  if (!jobs.length) return;
+  const lag = GPU.lag | 0;
+  if (!jobs.length && !(lag && GPU.q.length)) return;
   gl.bindVertexArray(GPU.vao);
-  const reads = jobs.map(j => j());
-  reads.forEach(r => r());
+  const caps = jobs.map(j => j());
   gl.viewport(0, 0, nx, ny);
-  if (bad) FRT.bad = true;
+  if (!lag) {
+    for (const c of caps) { gl.bindFramebuffer(gl.FRAMEBUFFER, c.fb); gl.readPixels(0, 0, c.w, c.h, gl.RGBA, gl.FLOAT, c.buf); c.apply(c.buf); }
+    return;
+  }
+  // pipelined: the copy goes into a pixel buffer and is read `lag` steps later, so the card never has to be waited for
+  const PK = gl.PIXEL_PACK_BUFFER, ent = caps.map(c => {
+    let pool = GPU.pbo.get(c.id);
+    if (!pool) { pool = []; GPU.pbo.set(c.id, pool); }
+    let pb = pool.pop();
+    if (!pb) { pb = gl.createBuffer(); gl.bindBuffer(PK, pb); gl.bufferData(PK, c.capN * 4, gl.STREAM_READ); }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, c.fb); gl.bindBuffer(PK, pb);
+    gl.readPixels(0, 0, c.w, c.h, gl.RGBA, gl.FLOAT, 0);
+    return { c, pb, pool };
+  });
+  gl.bindBuffer(PK, null);
+  if (ent.length) gl.flush();
+  GPU.q.push(ent);
+  while (GPU.q.length > lag) {
+    for (const x of GPU.q.shift()) { gl.bindBuffer(PK, x.pb); gl.getBufferSubData(PK, 0, x.c.buf, 0, x.c.n); x.pool.push(x.pb); x.c.apply(x.c.buf); }
+    gl.bindBuffer(PK, null);
+  }
 }
 function gpuStep(m, t, y, h) {
   const gl = GPU.gl, g = m.fld, plan = GPU.plan;
@@ -4813,6 +4839,7 @@ window.addEventListener('mathjax-ready', () => {
   texSecs.forEach(s => { s.key = null; });
   renderTexNow();
 });
+els.gpuLag.addEventListener('change', () => { GPU.lag = +els.gpuLag.value; gpuProbeReset(); });
 els.gpuOn.addEventListener('change', () => {
   GPU.want = els.gpuOn.checked;
   if (model && model.fld) { if (!GPU.want && GPU.on) gpuSyncAll(); gpuAttach(model); if (sim) { acc = 0; dirty = true; } }
