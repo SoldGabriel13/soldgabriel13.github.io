@@ -338,7 +338,7 @@ U = 0.5*(dot(E, E) + c^2*dot(B, B))</pre>
           <p>The <code>grid</code> line sets the number of points and the region. <code>scalar u</code> declares scalar fields and <code>vector E, B</code> vector ones (3 components; <code>vector E[2]</code> for 2). Equations with a prime are applied at every grid point and can use <code>x</code>, <code>y</code> (also <code>gx</code>, <code>gy</code> if a variable already has that name), <code>t</code>, parameters and your ordinary variables. <code>u'' = c^2*lap(u)</code> is a wave equation. <code>init E = (0, 0, exp(-(x^2+y^2)))</code> sets the starting field. A plain <code>name = ...</code> is a helper field recomputed each step (sources, energy density, <code>E = -grad(phi)</code>).</p>
           <p><b>Operators:</b> <code>grad(u)</code>, <code>div(F)</code>, <code>curl(F)</code>, <code>lap(u)</code>, and the partial derivatives <code>Dx Dy Dxx Dyy</code>. They need a field name inside; to differentiate an expression, make it a helper first. Fields depend on x and y only, so the z component of a vector is just a component that does not vary with z.</p>
           <p><b>GPU:</b> field equations run as shaders on the graphics card, with the same fixed <code>dt</code> (the GPU box above the scene switches it off). Values are 32-bit there, so results differ from the CPU by about 1e-6. Using <code>fsum</code>, <code>fmax</code>, <code>D</code> or <code>integral</code> inside a field equation falls back to the CPU, and the note beside the box says why.</p>
-          <p><b>Time stepping:</b> equations run in the order written and each sees the latest values, so write <code>B'</code> before <code>E'</code>. Keep <code>dt</code> below the grid spacing divided by the wave speed or the grid blows up (you get a message). <b>Boundaries:</b> <code>reflect</code> (default), <code>wall</code> (fields forced to zero at the edge, loses some energy), <code>periodic</code>, <code>absorb [width in cells] [strength]</code>.</p>
+          <p><b>Time stepping:</b> equations run in the order written and each sees the latest values, so write <code>B'</code> before <code>E'</code>. Keep <code>dt</code> below the grid spacing divided by the wave speed or the grid blows up (you get a message). <b>Boundaries:</b> <code>reflect</code> (default), <code>wall</code> (fields forced to zero at the edge, loses some energy), <code>periodic</code>, <code>absorb [width in cells] [strength]</code>. <b>Shapes:</b> <code>solid COND : KIND</code> marks every point where COND &gt; 0 (a comparison such as <code>(x-2)^2 + y^2 &lt; 1</code> works) as an obstacle; <code>domain COND : KIND</code> does the opposite, keeping only that region alive. KIND is <code>wall</code> (field = 0), <code>fixed VALUE</code> (a source or a held temperature; VALUE may use x, y, t and parameters), <code>neumann</code> (field copies its free neighbours, a hard reflecting wall with no flux) or <code>absorb STRENGTH</code> (damping, which may grow with x and y). Add <code>for u, v</code> to affect only some fields. Shapes can move, since COND may use t and parameters. Obstacles show in grey.</p>
           <p><b>Fields and particles:</b> <code>sample(E, px, py)</code> reads a field at any point (a vector field gives a vector), <code>fsum(U)</code> integrates a field over the grid and <code>fmax(U)</code> is its largest size. Both work in ordinary equations and helpers, for example <code>W = fsum(U)</code> to plot the total energy, or <code>v' = q*(sample(E, r.x, r.y) + cross(v, sample(B, r.x, r.y)))</code> for the Lorentz force. Particles feel the fields but do not push back on them. Choose what to show with the Show list above the scene (a vector offers its magnitude and each component), tick Arrows for direction, and set Range to fix the colour scale. Hover to read a value.</p>
         </details>
         <details class="sub"><summary>8. Plots, derivatives and layout</summary>
@@ -1183,6 +1183,7 @@ function expandAll(T) {
     const defined = new Set();
     for (const k of ['params', 'ic', 'eq', 'fields', 'funcs']) for (const L of cleanLines(T[k] || '')) {
       if (/^(scalar|vector|complex)\b/i.test(L.s)) { for (const m of L.s.matchAll(RE_VID)) defined.add(m[0]); continue; }
+      if (/^(solid|domain)\b/i.test(L.s)) continue;
       const q = L.s.indexOf('=');
       if (q < 0 || /^stop\s*:/i.test(L.s)) continue;
       for (const m of L.s.slice(0, q).matchAll(RE_VID)) defined.add(m[0].replace(/'+$/, ''));
@@ -1225,7 +1226,7 @@ function expandAll(T) {
   for (let pass = 0; pass < 6; pass++) {
     let changed = false;
     for (const L of lines) {
-      if (/^stop\s*:/i.test(L.s)) continue;
+      if (/^stop\s*:/i.test(L.s) || /^(solid|domain)\b/i.test(L.s)) continue;
       const q = L.s.indexOf('=');
       if (q < 0) continue;
       const lh = splitLhs(L.s.slice(0, q));
@@ -1354,7 +1355,7 @@ function expandAll(T) {
       });
       return ['scalar ' + out.join(', ')];
     }
-    if (/^(grid|boundary)\b/i.test(part)) return [part];
+    if (/^(grid|boundary|solid|domain)\b/i.test(part)) return [part];
     m = /^init\s+(.*)$/i.exec(part);
     if (m) return assign(m[1]).map(x => 'init ' + x);
     return assign(part);
@@ -1439,6 +1440,7 @@ function fieldInit(m, y) {
   FRT.tmp = new Float64Array(N); FRT.step = 0; FRT.bad = false; FRT.sums = { step: -1, v: new Map() };
   m.snapshot(0, y);
   for (const q of g.inits) fieldPass(m, q.k, q.fn, 0, 0);
+  fieldRegions(m, 0);
   fieldHelpers(m);
   g.edgeIdx = null; g.wallIdx = null;
   if (g.bc === 'wall') {
@@ -1453,6 +1455,58 @@ function fieldInit(m, y) {
       if (d < w) { idx.push(j * g.nx + i); str.push(g.absS * Math.pow((w - d) / w, 2)); }
     }
     g.edgeIdx = Int32Array.from(idx); g.edgeS = Float64Array.from(str);
+  }
+}
+function regionMask(m, r) {
+  const g = m.fld, env = m.env;
+  if (r.stat && r.mask) return r.mask;
+  const mk = r.mask || (r.mask = new Uint8Array(g.nx * g.ny));
+  let c = 0;
+  for (let j = 0; j < g.ny; j++) {
+    env[g.ys] = g.y0 + j * g.dy;
+    for (let i = 0; i < g.nx; i++, c++) { env[g.xs] = g.x0 + i * g.dx; mk[c] = (r.cond(env) > 0) !== r.inv ? 1 : 0; }
+  }
+  return mk;
+}
+function solidUnion(m) {
+  const g = m.fld;
+  if (!g || !g.regs || !g.regs.length) return null;
+  const u = new Uint8Array(g.nx * g.ny);
+  for (const r of g.regs) { const mk = regionMask(m, r); for (let c = 0; c < u.length; c++) if (mk[c]) u[c] = 1; }
+  return u;
+}
+function fieldRegions(m, h) {
+  const g = m.fld, env = m.env, nx = g.nx, ny = g.ny;
+  if (!g.regs) return;
+  for (const r of g.regs) {
+    const mk = regionMask(m, r);
+    for (const k of r.ks) {
+      const a = FRT.arr[k], der = g.names[k].includes("'");
+      if (r.kind === 'neumann') {
+        for (let j = 0, c = 0; j < ny; j++) for (let i = 0; i < nx; i++, c++) {
+          if (!mk[c]) continue;
+          let s = 0, n = 0;
+          if (i > 0 && !mk[c - 1]) { s += a[c - 1]; n++; }
+          if (i < nx - 1 && !mk[c + 1]) { s += a[c + 1]; n++; }
+          if (j > 0 && !mk[c - nx]) { s += a[c - nx]; n++; }
+          if (j < ny - 1 && !mk[c + nx]) { s += a[c + nx]; n++; }
+          a[c] = n ? s / n : 0;
+        }
+      } else {
+        for (let j = 0, c = 0; j < ny; j++) {
+          env[g.ys] = g.y0 + j * g.dy;
+          for (let i = 0; i < nx; i++, c++) {
+            if (!mk[c]) continue;
+            if (r.kind === 'wall') a[c] = 0;
+            else {
+              env[g.xs] = g.x0 + i * g.dx;
+              if (r.kind === 'fixed') { const v = der ? 0 : r.val(env); a[c] = Number.isFinite(v) ? v : 0; }
+              else a[c] *= Math.max(0, 1 - r.val(env) * h);
+            }
+          }
+        }
+      }
+    }
   }
 }
 function fieldStep(m, t, y, h) {
@@ -1470,6 +1524,7 @@ function fieldStep(m, t, y, h) {
     const wi = g.wallIdx;
     g.states.forEach(k => { const a = FRT.arr[k]; for (let e = 0; e < wi.length; e++) a[wi[e]] = 0; });
   }
+  fieldRegions(m, h);
   FRT.step++;
   env[0] = t + h;
   fieldHelpers(m);
@@ -1588,7 +1643,7 @@ function glslExpr(src, res, G) {
   if (p < toks.length) throw new Error("Unexpected '" + toks[p].s + "'");
   return out;
 }
-function gpuFrag(g, NE4, G, body) {
+function gpuFrag(g, NE4, G, body, pre) {
   const used = [...G.used].sort((a, b) => a - b);
   let s = '#version 300 es\nprecision highp float;\nprecision highp int;\nprecision highp sampler2D;\n';
   s += 'layout(std140) uniform Env { vec4 uE[' + NE4 + ']; };\nuniform float uH;\nuniform ivec2 uN;\nuniform vec4 uGeo;\n';
@@ -1608,6 +1663,7 @@ function gpuFrag(g, NE4, G, body) {
       '  float a = texelFetch(uF' + k + ', ivec2(i0, j0), 0).r, b = texelFetch(uF' + k + ', ivec2(i0 + 1, j0), 0).r, c = texelFetch(uF' + k + ', ivec2(i0, j0 + 1), 0).r, d = texelFetch(uF' + k + ', ivec2(i0 + 1, j0 + 1), 0).r;\n' +
       '  return mix(mix(a, b, u), mix(c, d, u), v);\n}\n';
   });
+  if (pre) s += pre;
   s += 'void main() {\n  ivec2 c = ivec2(gl_FragCoord.xy);\n  float gx = uGeo.x + float(c.x) * uGeo.z, gy = uGeo.y + float(c.y) * uGeo.w;\n';
   used.forEach(k => { s += '  float f' + k + ' = texelFetch(uF' + k + ', c, 0).r;\n'; });
   s += '  float v = ' + body + ';\n  o = vec4(v, 0.0, 0.0, 1.0);\n}\n';
@@ -1623,7 +1679,7 @@ function gpuBuild(m) {
   g.slot.forEach((s, k) => slotK.set(s, k));
   const passes = [];
   const mkG = () => ({ fld: g, slotK, fns: g.fns, used: new Set(), samp: new Set(), subst: null, depth: 0 });
-  const add = (k, expr, G, late) => { const f = gpuFrag(g, NE4, G, expr); passes.push({ k, src: f.src, used: f.used, late }); };
+  const add = (k, expr, G, late, pre) => { const f = gpuFrag(g, NE4, G, expr, pre); passes.push({ k, src: f.src, used: f.used, late }); };
   for (const q of g.eqs) {
     const G = mkG(); G.used.add(q.k);
     if (q.from >= 0) { G.used.add(q.from); add(q.k, 'f' + q.k + ' + uH * f' + q.from, G, false); }
@@ -1635,6 +1691,25 @@ function gpuBuild(m) {
       const d = 'float(min(min(c.x, c.y), min(uN.x - 1 - c.x, uN.y - 1 - c.y)))', w = glLit(Math.max(1, g.absW)), S = glLit(g.absS);
       add(k, g.bc === 'wall' ? '(' + d + ' == 0.0 ? 0.0 : f' + k + ')'
         : '(' + d + ' < ' + w + ' ? f' + k + ' * max(0.0, 1.0 - ' + S + ' * pow((' + w + ' - ' + d + ') / ' + w + ', 2.0) * uH) : f' + k + ')', G, false);
+    }
+  }
+  for (const r of g.regs || []) {
+    for (const k of r.ks) {
+      const G = mkG(); G.used.add(k);
+      const der = g.names[k].includes("'");
+      let pre = 'float rgC(float gx, float gy) { return ' + glslExpr(r.src, r.res, G) + '; }\n' +
+        'bool rgSol(float gx, float gy) { return (rgC(gx, gy) > 0.0) != ' + (r.inv ? 'true' : 'false') + '; }\n';
+      let body;
+      if (r.kind === 'wall') body = '(rgSol(gx, gy) ? 0.0 : f' + k + ')';
+      else if (r.kind === 'fixed') body = '(rgSol(gx, gy) ? ' + (der ? '0.0' : glslExpr(r.vsrc, r.res, G)) + ' : f' + k + ')';
+      else if (r.kind === 'absorb') body = '(rgSol(gx, gy) ? f' + k + ' * max(0.0, 1.0 - (' + glslExpr(r.vsrc, r.res, G) + ') * uH) : f' + k + ')';
+      else {
+        pre += 'float rgNb(ivec2 c) {\n  float s = 0.0, n = 0.0;\n  ivec2 o[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));\n' +
+          '  for (int q = 0; q < 4; q++) {\n    ivec2 d = c + o[q];\n    if (d.x < 0 || d.y < 0 || d.x >= uN.x || d.y >= uN.y) continue;\n' +
+          '    if (rgSol(uGeo.x + float(d.x) * uGeo.z, uGeo.y + float(d.y) * uGeo.w)) continue;\n    s += F' + k + 'at(d); n += 1.0;\n  }\n  return n > 0.0 ? s / n : 0.0;\n}\n';
+        body = '(rgSol(gx, gy) ? rgNb(c) : f' + k + ')';
+      }
+      add(k, body, G, false, pre);
     }
   }
   for (const h of g.helpers) { const G = mkG(); add(h.k, glslExpr(h.src, g.fres, G), G, true); }
@@ -1742,7 +1817,7 @@ function buildModel(T0) {
   const ctx = { fns, alloc, hBase, nH, fld: null };
 
   // fields on a grid: grid / boundary / scalar / init / rate equations / helper fields
-  const fp = { grid: null, bc: { kind: 'reflect', w: 12, s: 8 }, decl: [], inits: [], rates: [], helpers: [] };
+  const fp = { grid: null, bc: { kind: 'reflect', w: 12, s: 8 }, decl: [], inits: [], rates: [], helpers: [], regs: [] };
   const pOnly = n => (pScope.has(n) ? pScope.get(n) : -1);
   for (const L of cleanLines(T.fields || '')) {
     try {
@@ -1760,6 +1835,18 @@ function buildModel(T0) {
         if (!/^(reflect|periodic|absorb|wall)$/i.test(w[0])) throw new Error('Boundary can be reflect, wall, periodic or absorb [width in cells] [strength]');
         fp.bc = { kind: w[0].toLowerCase(), w: w[1] ? +w[1] : 12, s: w[2] ? +w[2] : 8 };
         if (!(fp.bc.w >= 1 && fp.bc.s >= 0)) throw new Error('The absorbing layer needs a width of 1 or more cells and a strength of 0 or more');
+      } else if ((m = /^(solid|domain)\b\s*(.*)$/i.exec(L.s))) {
+        const q = m[2].indexOf(':');
+        if (q < 0) throw new Error('Write it as: solid (x - 2)^2 + y^2 < 1 : wall   (also fixed value, neumann, absorb strength)');
+        const cond = m[2].slice(0, q).trim(), tail = /^(wall|fixed|neumann|absorb)\b\s*(.*)$/i.exec(m[2].slice(q + 1).trim());
+        if (!cond) throw new Error('Nothing before the colon: the shape goes first, as in solid x > 8 : wall');
+        if (!tail) throw new Error('After the colon use wall, fixed value, neumann or absorb strength');
+        let arg = tail[2], names = null;
+        const fm = /(?:^|\s)for\s+(.+)$/i.exec(arg);
+        if (fm) { names = splitTop(fm[1]).map(x => x.trim()).filter(Boolean); arg = arg.slice(0, fm.index).trim(); }
+        const kind = tail[1].toLowerCase();
+        if ((kind === 'fixed' || kind === 'absorb') && !arg) throw new Error(kind === 'fixed' ? 'fixed needs a value, as in : fixed 1' : 'absorb needs a strength, as in : absorb 4');
+        fp.regs.push({ cond, kind, arg, names, inv: m[1].toLowerCase() === 'domain', line: L.line });
       } else if ((m = /^scalar\b\s*(.*)$/i.exec(L.s))) {
         splitTop(m[1]).forEach(n => { if (!RE_NAME_ONLY.test(n)) throw new Error("'" + n + "' is not a valid field name"); fp.decl.push(n); });
       } else if ((m = /^init\s+(\S+?)\s*=\s*(.+)$/i.exec(L.s))) {
@@ -1913,6 +2000,20 @@ function buildModel(T0) {
     fp.helpers.forEach(h => {
       const k = fidx.get(h.name), fn = comp(h.rhs, h.line);
       if (fn && k !== undefined) fld.helpers.push({ k, fn, src: h.rhs });
+    });
+    fld.regs = [];
+    const condRes = n => (fslot.has(n) ? -1 : fres(n));
+    fp.regs.forEach(r => {
+      try {
+        const cond = compileExpr(r.cond, condRes, ctx), val = r.arg ? compileExpr(r.arg, condRes, ctx) : null;
+        let ks = fld.states.slice();
+        if (r.names) {
+          ks = fld.states.filter(k => { const b = fnames[k].replace(/'+$/, ''); return r.names.some(n => b === n || b.startsWith(n + '_')); });
+          if (!ks.length) throw new Error("No stored field is called '" + r.names.join(', ') + "'. Fields: " + fnames.filter((n, i) => fkind[i] === 'state' && !n.includes("'")).join(', '));
+        }
+        const stat = tokenize(r.cond).every(tk => tk.t !== 'id' || tk.v === 'x' || tk.v === 'y' || tk.v === 'gx' || tk.v === 'gy' || has(FUNCS, tk.v) || has(CONSTS, tk.v));
+        fld.regs.push({ cond, val, kind: r.kind, inv: r.inv, ks, src: r.cond, vsrc: r.arg, stat, mask: null, res: condRes });
+      } catch (e) { err('fields', r.line, e.message); }
     });
   }
 
@@ -2874,6 +2975,73 @@ const PRESET_JSON = [
         "P"
       ]
     }
+  },
+  {
+    "id": "obstacles",
+    "name": "Waves around obstacles: slits, a mirror and a driven source (fields)",
+    "app": "ode-sandbox",
+    "version": 1,
+    "equations": [
+      "# energy-like number to watch",
+      "E = fsum(uu)"
+    ],
+    "functions": [],
+    "parameters": [
+      "c = 2",
+      "w = 6",
+      "amp = 1",
+      "gam = 0.05",
+      "mx = 3"
+    ],
+    "initial": [],
+    "draw": [],
+    "actions": [
+      "action Source off: set amp to 0",
+      "action Source on: set amp to 1",
+      "action Move the mirror up: set mx to mx + 1"
+    ],
+    "fields": [
+      "grid 140 x 90 on -14..14, -9..9",
+      "boundary reflect",
+      "",
+      "# 2D wave equation. Every 'solid' line is an obstacle with its own boundary condition.",
+      "u'' = c^2*lap(u) - gam*u'",
+      "",
+      "# a vertical line that vibrates (a driven source)",
+      "solid abs(x + 12) < 0.25 : fixed amp*sin(w*t) for u",
+      "",
+      "# a wall with two slits, hard (no flux)",
+      "solid ifelse(abs(x - 2) < 0.3, ifelse(abs(abs(y) - 2) < 0.7, 0, 1), 0) : neumann",
+      "",
+      "# a round mirror, soft (u = 0)",
+      "solid (x + 5)^2 + (y - mx)^2 < 1.2 : wall",
+      "",
+      "# the right side swallows waves, so nothing comes back",
+      "solid x > 10 : absorb 4*(x - 10)",
+      "",
+      "# and the whole world is a stadium, not a rectangle",
+      "domain abs(y) < 8.2 : neumann",
+      "domain abs(y) < 8.2 : neumann",
+      "",
+      "uu = u^2"
+    ],
+    "settings": {
+      "dt": 0.02,
+      "speed": 1,
+      "window": 0,
+      "trail": 0,
+      "joinPoints": false,
+      "fieldView": {
+        "show": "u",
+        "arrows": false,
+        "range": 0.8
+      },
+      "show": [],
+      "phase": [
+        "t",
+        "E"
+      ]
+    }
   }
 ];
 
@@ -3257,7 +3425,7 @@ function texModel(T0, leiFlag, optIn) {
     for (const L of cleanLines(T.fields || '')) {
       let m; curRaw = L.s;
       if ((m = /^init\s+(\S+?)\s*=\s*(.+)$/i.exec(L.s))) { const r = expr(m[2]); if (r) fieldItems.push(item(idTex(m[1], false).s + '(x, y, 0)', r.s)); continue; }
-      if (/^(grid|boundary|scalar|vector|complex)\b/i.test(L.s)) continue;
+      if (/^(grid|boundary|scalar|vector|complex|solid|domain)\b/i.test(L.s)) continue;
       const k = L.s.indexOf('=');
       if (k < 0) continue;
       const lhs = attempt(() => parseLhs(L.s.slice(0, k))), r = expr(L.s.slice(k + 1));
@@ -4121,10 +4289,11 @@ function drawFieldLayer(ctx, W, H, S, sx, sy) {
   if (!fvOff || fvOff.width !== g.nx || fvOff.height !== g.ny) { fvOff = document.createElement('canvas'); fvOff.width = g.nx; fvOff.height = g.ny; }
   const octx = fvOff.getContext('2d'), img = octx.createImageData(g.nx, g.ny), d = img.data;
   const bg = hexRgb(theme.sunk, [233, 238, 244]), cp = hexRgb(theme.series[0], [45, 107, 221]), cn = hexRgb(theme.series[1], [224, 112, 26]);
-  const ph = opt.phase ? [FRT.arr[opt.ks[0]], FRT.arr[opt.ks[1]]] : null;
+  const ph = opt.phase ? [FRT.arr[opt.ks[0]], FRT.arr[opt.ks[1]]] : null, sol = solidUnion(model);
   for (let j = 0; j < g.ny; j++) {
     const row = (g.ny - 1 - j) * g.nx;
     for (let i = 0; i < g.nx; i++) {
+      if (sol && sol[j * g.nx + i]) { const o2 = (row + i) * 4; d[o2] = 120; d[o2 + 1] = 126; d[o2 + 2] = 136; d[o2 + 3] = 255; continue; }
       const v = vals[j * g.nx + i], a = Math.min(1, Math.pow(Math.abs(v) / sc, 0.8)), col = ph ? hueRgb(Math.atan2(ph[1][j * g.nx + i], ph[0][j * g.nx + i])) : v >= 0 ? cp : cn, o = (row + i) * 4;
       d[o] = bg[0] + (col[0] - bg[0]) * a; d[o + 1] = bg[1] + (col[1] - bg[1]) * a; d[o + 2] = bg[2] + (col[2] - bg[2]) * a; d[o + 3] = 255;
     }
