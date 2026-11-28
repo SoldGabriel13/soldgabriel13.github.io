@@ -104,7 +104,10 @@ select { max-width: 100%; }
 canvas { display: block; width: 100%; height: auto; }
 #scene { aspect-ratio: 16 / 10; }
 #ts, #phase, #dv { aspect-ratio: 4 / 3; }
-.dvval { margin-right: auto; font: 12px var(--font-mono); color: var(--muted); align-self: center; }
+.secax { flex-wrap: wrap; justify-content: flex-end; }
+.secax input[type="number"] { width: 74px; min-height: 28px; padding: 3px 6px; font-size: 12px; }
+.secax input[type="range"] { width: 110px; min-height: 28px; padding: 0; }
+#secLn { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .matwrap { overflow-x: auto; padding: 0 12px 12px; }
 .matwrap table { border-collapse: collapse; font: 12px var(--font-mono); }
 .matwrap th, .matwrap td { padding: 3px 8px; text-align: right; white-space: nowrap; }
@@ -192,9 +195,11 @@ input[type="range"] { accent-color: var(--accent); width: 100%; min-width: 0; ma
 .card.hid .wbtn.hide svg { transform: rotate(-90deg); }
 .grip { position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; opacity: 0.6; background: linear-gradient(135deg, transparent 0 52%, var(--muted) 52% 60%, transparent 60% 72%, var(--muted) 72% 80%, transparent 80%); }
 .grip:hover { opacity: 1; }
-.card.sized, .card.max { display: flex; flex-direction: column; }
-.card.sized canvas, .card.max canvas { aspect-ratio: auto; height: 0; flex: 1 1 0; min-height: 80px; }
-.card.sized .tex, .card.max .tex { flex: 1 1 0; min-height: 0; overflow: auto; }
+.card.sized, .card.max, .card.pip { display: flex; flex-direction: column; }
+.card.pip { position: fixed; inset: 0; border: 0; border-radius: 0; margin: 0; width: auto !important; height: auto !important; max-width: none !important; flex: none !important; overflow: auto; }
+.card.pip .grip, .card.pip .wbtn.full, .card.pip .wbtn.hide { display: none; }
+.card.sized canvas, .card.max canvas, .card.pip canvas { aspect-ratio: auto; height: 0; flex: 1 1 0; min-height: 80px; }
+.card.sized .tex, .card.max .tex, .card.pip .tex { flex: 1 1 0; min-height: 0; overflow: auto; }
 .card.hid > :not(.cap) { display: none !important; }
 .card.hid { height: auto !important; }
 .card.hid .grip, .card.max .grip { display: none; }
@@ -341,10 +346,10 @@ U = 0.5*(dot(E, E) + c^2*dot(B, B))</pre>
           <p><b>Time stepping:</b> equations run in the order written and each sees the latest values, so write <code>B'</code> before <code>E'</code>. Keep <code>dt</code> below the grid spacing divided by the wave speed or the grid blows up (you get a message). <b>Boundaries:</b> <code>reflect</code> (default), <code>wall</code> (fields forced to zero at the edge, loses some energy), <code>periodic</code>, <code>absorb [width in cells] [strength]</code>. <b>Shapes:</b> <code>solid COND : KIND</code> marks every point where COND &gt; 0 (a comparison such as <code>(x-2)^2 + y^2 &lt; 1</code> works) as an obstacle; <code>domain COND : KIND</code> does the opposite, keeping only that region alive. KIND is <code>wall</code> (field = 0), <code>fixed VALUE</code> (a source or a held temperature; VALUE may use x, y, t and parameters), <code>neumann</code> (field copies its free neighbours, a hard reflecting wall with no flux) or <code>absorb STRENGTH</code> (damping, which may grow with x and y). Add <code>for u, v</code> to affect only some fields. Shapes can move, since COND may use t and parameters. Obstacles show in grey.</p>
           <p><b>Fields and particles:</b> <code>sample(E, px, py)</code> reads a field at any point (a vector field gives a vector), <code>fsum(U)</code> integrates a field over the grid and <code>fmax(U)</code> is its largest size. Both work in ordinary equations and helpers, for example <code>W = fsum(U)</code> to plot the total energy, or <code>v' = q*(sample(E, r.x, r.y) + cross(v, sample(B, r.x, r.y)))</code> for the Lorentz force. Particles feel the fields but do not push back on them. Choose what to show with the Show list above the scene (a vector offers its magnitude and each component), tick Arrows for direction, and set Range to fix the colour scale. Hover to read a value.</p>
         </details>
-        <details class="sub"><summary>8. Plots, derivatives and layout</summary>
+        <details class="sub"><summary>8. Plots, field sections and layout</summary>
           <p><b>Time series:</b> click a chip to show or hide a curve. <b>Window</b> is how many time units stay on screen (0 shows everything), <b>Trail</b> how long the points leave a tail, <b>Speed</b> the playback rate, and <b>Step dt</b> the integration step. <b>Phase:</b> pick any two quantities for the axes.</p>
-          <p><b>Derivatives:</b> pick any numerator and denominator, from time, variables and helpers, and the card plots dA/dB (against time or against the denominator) with no formula needed. It is computed as (dA/dt)/(dB/dt) along the run. "All pairs" shows every ratio now; click a cell to plot it.</p>
-          <p><b>Typeset:</b> shows your equations in LaTeX. Choose dots or d/dt for time derivatives; <b>Vectors</b> picks bold symbols with ∇ (∇u, ∇·F, ∇×F, ∇²u) or the expanded components; <b>Norm</b> shows abs(v) and norm(v) as ‖v‖ or |v|; <b>Partials</b> chooses ∂u/∂x or ∂ₓu; <b>Laplacian</b> chooses ∇², Δ or the explicit sum. The LaTeX button gives source you can copy. Every panel can be hidden, made fullscreen (Esc exits) or resized with its corner grip (double-click the grip to reset). <b>Save / load</b> writes the whole system, the view and your settings as text you can copy and paste back later.</p>
+          <p><b>Field section:</b> cuts a field along a line and plots it as a curve, like F(x, 0). Pick the field, then <b>x at y =</b> (a horizontal cut), <b>y at x =</b> (a vertical cut) or <b>along a line</b> between two points, and drag the slider to move the cut while it runs. A vector field gives each component and its magnitude, a complex field gives Re, Im, |ψ| and the phase. Click a chip to hide a curve, hover the plot to read values, and <b>Pin</b> keeps the current curve as a faint reference so you can watch how it changes. Grey bands are obstacles.</p>
+          <p><b>Typeset:</b> shows your equations in LaTeX. Choose dots or d/dt for time derivatives; <b>Vectors</b> picks bold symbols with ∇ (∇u, ∇·F, ∇×F, ∇²u) or the expanded components; <b>Norm</b> shows abs(v) and norm(v) as ‖v‖ or |v|; <b>Partials</b> chooses ∂u/∂x or ∂ₓu; <b>Laplacian</b> chooses ∇², Δ or the explicit sum. The LaTeX button gives source you can copy. Every panel can be hidden, made fullscreen (Esc exits), popped out into a small floating window that stays on top of other windows (only shown in Chromium browsers such as Chrome and Edge; closing it puts the panel back) or resized with its corner grip (double-click the grip to reset). <b>Save / load</b> writes the whole system, the view and your settings as text you can copy and paste back later.</p>
         </details>
       </details>
     </aside>
@@ -435,16 +440,19 @@ U = 0.5*(dot(E, E) + c^2*dot(B, B))</pre>
           </div>
           <canvas id="phase" role="img" aria-label="Phase portrait of two chosen quantities"></canvas>
         </section>
-        <section class="card" id="dvCard" aria-label="Derivatives">
-          <div class="cap"><h2>Derivatives</h2>
-            <div class="axes">
-              <span>d</span><select id="dvA" aria-label="Numerator"></select><span>/ d</span><select id="dvB" aria-label="Denominator"></select>
-              <label for="dvX">vs</label><select id="dvX"><option value="ind">time</option><option value="b">denominator</option></select>
+        <section class="card" id="secCard" aria-label="Field section" hidden>
+          <div class="cap"><h2>Field section</h2>
+            <div class="axes secax">
+              <select id="secF" aria-label="Field to cut"></select>
+              <select id="secM" aria-label="Direction of the cut"><option value="x">x at y =</option><option value="y">y at x =</option><option value="l">along a line</option></select>
+              <input id="secP" type="number" step="any" value="0" aria-label="Position of the cut">
+              <input id="secS" type="range" aria-label="Move the cut">
+              <span id="secLn" hidden>from <input id="secX1" type="number" step="any" aria-label="Start x">, <input id="secY1" type="number" step="any" aria-label="Start y"> to <input id="secX2" type="number" step="any" aria-label="End x">, <input id="secY2" type="number" step="any" aria-label="End y"></span>
+              <button id="secPin" class="btn small" type="button" aria-pressed="false" title="Keep the current curve as a faint reference">Pin</button>
             </div>
           </div>
-          <canvas id="dv" role="img" aria-label="Derivative of one quantity with respect to another"></canvas>
-          <div class="legend"><span id="dvVal" class="dvval"></span><button id="dvTog" class="btn small" type="button" aria-expanded="false">All pairs</button></div>
-          <div id="dvMat" class="matwrap" hidden></div>
+          <canvas id="sec" role="img" aria-label="A field plotted along a line through the simulation area"></canvas>
+          <div id="secLegend" class="legend"></div>
         </section>
       </div>
     </section>
@@ -3057,6 +3065,7 @@ function presetFromSaved(o) {
     id: typeof o.id === 'string' ? o.id : 'custom', name: o.name,
     eq: asText(o.equations), funcs: asText(o.functions), params: asText(o.parameters), ic: asText(o.initial), draw: asText(o.draw), acts: asText(o.actions), fields: asText(o.fields),
     fv: st.fieldView && typeof st.fieldView === 'object' ? st.fieldView : null,
+    sec: st.section && typeof st.section === 'object' ? st.section : null,
     link: !!st.joinPoints, speed: num(st.speed, 1), dt: Math.max(1e-5, num(st.dt, 0.005)), win: Math.max(0, num(st.window, 10)), trail: Math.max(0, num(st.trail, 2)),
     show: Array.isArray(st.show) && st.show.length ? st.show : null, phase: Array.isArray(st.phase) && st.phase[0] ? st.phase : null,
     chips: st.fields && typeof st.fields === 'object' ? st.fields : null,
@@ -3469,7 +3478,7 @@ const els = {
   texPick: $('texPick'), texVec: $('texVec'), texNorm: $('texNorm'), texPd: $('texPd'), texLap: $('texLap'),
   funcs: $('funcs'), funcsErr: $('funcsErr'), sceneChips: $('sceneChips'), indLabel: $('indLabel'), indHint: $('indHint'),
   acts: $('acts'), actsErr: $('actsErr'), actBar: $('actBar'), actBtns: $('actBtns'), evLog: $('evLog'),
-  dvCard: $('dvCard'), dv: $('dv'), dvA: $('dvA'), dvB: $('dvB'), dvX: $('dvX'), dvVal: $('dvVal'), dvTog: $('dvTog'), dvMat: $('dvMat'),
+  secCard: $('secCard'), sec: $('sec'), secF: $('secF'), secM: $('secM'), secP: $('secP'), secS: $('secS'), secLn: $('secLn'), secX1: $('secX1'), secY1: $('secY1'), secX2: $('secX2'), secY2: $('secY2'), secPin: $('secPin'), secLegend: $('secLegend'),
   viewSeg: $('viewSeg'), zoomBtns: $('zoomBtns'), zin: $('zin'), zout: $('zout'),
   ioOpen: $('ioOpen'), ioModal: $('ioModal'), ioText: $('ioText'), ioSave: $('ioSave'), ioCopy: $('ioCopy'), ioLoad: $('ioLoad'), ioClose: $('ioClose'), ioMsg: $('ioMsg'),
   fields: $('fields'), fieldsErr: $('fieldsErr'), fieldBar: $('fieldBar'), fvSel: $('fvSel'), fvArrows: $('fvArrows'), fvScale: $('fvScale'), gpuOn: $('gpuOn'), gpuLag: $('gpuLag'), gpuNote: $('gpuNote'),
@@ -3540,7 +3549,7 @@ function newSim(m) {
     scratch: { k1: z(), k2: z(), k3: z(), k4: z(), tmp: z() },
     histT: [], hist: m.serIdx.map(() => []),
     dx: m.draws.map(() => []), dy: m.draws.map(() => []), seg2: m.draws.map(() => null),
-    view: null, cam: null, evs: [], dq: null, dqN: 0
+    view: null, cam: null, evs: []
   };
 }
 function seedView() {
@@ -3574,7 +3583,6 @@ function record() {
     sim.hist.forEach(a => a.splice(0, cut));
     sim.dx.forEach(a => a.splice(0, cut));
     sim.dy.forEach(a => a.splice(0, cut));
-    if (sim.dq) { sim.dq.forEach(a => a.splice(0, cut)); sim.dqN = Math.max(0, sim.dqN - cut); }
   }
 }
 function resetSim() {
@@ -4253,7 +4261,6 @@ function rebuildUI() {
   els.indHint.textContent = model.ind === 't' ? 't is time' : model.ind + ' is the independent variable';
   buildFieldChips();
   buildActionButtons();
-  buildDvUI();
 }
 
 // ----- drawing -----
@@ -4295,8 +4302,9 @@ function plot(c, o) {
   ctx.save();
   ctx.beginPath(); ctx.rect(m.l, m.t, pw, ph); ctx.clip();
   ctx.lineWidth = 1.8; ctx.lineJoin = 'round';
+  if (o.bands) { ctx.fillStyle = theme.muted; ctx.globalAlpha = 0.22; for (const b of o.bands) ctx.fillRect(X(b[0]), m.t, Math.max(1, X(b[1]) - X(b[0])), ph); ctx.globalAlpha = 1; }
   for (const L of o.lines) {
-    ctx.strokeStyle = L.color;
+    ctx.strokeStyle = L.color; ctx.globalAlpha = L.alpha || 1; ctx.setLineDash(L.dash || []);
     ctx.beginPath();
     let started = false;
     const n = L.i1 - L.i0 + 1, stride = Math.max(1, Math.floor(n / (pw * 1.5)));
@@ -4309,6 +4317,8 @@ function plot(c, o) {
     if ((L.i1 - L.i0) % stride !== 0) pt(L.i1);
     ctx.stroke();
   }
+  ctx.globalAlpha = 1; ctx.setLineDash([]);
+  if (o.vline != null && Number.isFinite(o.vline)) { ctx.strokeStyle = theme.muted; ctx.setLineDash([3, 3]); ctx.beginPath(); ctx.moveTo(Math.round(X(o.vline)) + 0.5, m.t); ctx.lineTo(Math.round(X(o.vline)) + 0.5, m.t + ph); ctx.stroke(); ctx.setLineDash([]); }
   if (o.marker && Number.isFinite(o.marker.x) && Number.isFinite(o.marker.y)) {
     ctx.fillStyle = o.marker.color; ctx.strokeStyle = theme.surface; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(X(o.marker.x), Y(o.marker.y), 4.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
@@ -4373,7 +4383,7 @@ function drawPhase() {
 let fvOpts = [], pendingFv = null, fvPeak = 0, fvOff = null, fvBuf = null;
 function buildFieldSel() {
   const g = model.fld;
-  els.fieldBar.hidden = !g;
+  els.fieldBar.hidden = !g; els.secCard.hidden = !g;
   if (!g) return;
   const keep = (fvOpts[els.fvSel.selectedIndex] || {}).label;
   fvOpts = [];
@@ -4417,6 +4427,7 @@ function buildFieldSel() {
   const i = fvOpts.findIndex(o => o.label === want);
   els.fvSel.selectedIndex = i >= 0 ? i : 0;
   fvPeak = 0;
+  secBuild();
 }
 ['fvSel', 'fvArrows', 'fvScale'].forEach(k => els[k].addEventListener('input', () => { if (k === 'fvSel') fvPeak = 0; dirty = true; }));
 function hexRgb(c, d) {
@@ -4667,7 +4678,7 @@ function updateLive() {
 function render() {
   readTheme(false);
   if (!sim || !model) return;
-  drawScene(); drawSeries(); drawPhase(); drawDeriv(); updateLive();
+  drawScene(); drawSeries(); drawPhase(); drawSection(); updateLive();
 }
 
 // ----- controls -----
@@ -4727,7 +4738,7 @@ function setSpeed(v) {
   els.speed.value = best.value; speed = parseFloat(best.value);
 }
 function loadPreset(p) {
-  els.eq.value = p.eq; els.funcs.value = p.funcs || ''; els.params.value = p.params; els.ic.value = p.ic; els.draw.value = p.draw || ''; els.acts.value = p.acts || ''; els.fields.value = p.fields || ''; pendingFv = p.fv || null;
+  els.eq.value = p.eq; els.funcs.value = p.funcs || ''; els.params.value = p.params; els.ic.value = p.ic; els.draw.value = p.draw || ''; els.acts.value = p.acts || ''; els.fields.value = p.fields || ''; pendingFv = p.fv || null; pendingSec = p.sec || null;
   fieldOn = p.chips ? Object.assign({}, p.chips) : {}; pendingShade = p.shade || null;
   texHidden = new Set(p.tex && Array.isArray(p.tex.hidden) ? p.tex.hidden : []);
   if (p.tex) {
@@ -4966,110 +4977,146 @@ function drawNotes(ctx, W) {
   });
 }
 
-// ----- derivatives of any quantity with respect to any other -----
-// dA/dB = (dA/dt) / (dB/dt) along the run. dq holds dQ/dt for every state and helper at each recorded sample.
-let dvCells = [], dvLast = 0;
-function dvNames() { return [model.ind].concat(model.seriesNames); }
-function buildDvUI() {
-  const names = dvNames(), ser = model.seriesNames, keepA = els.dvA.value, keepB = els.dvB.value;
-  [els.dvA, els.dvB].forEach(sel => {
-    sel.innerHTML = '';
-    names.forEach(n => { const o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
-  });
-  els.dvA.value = names.includes(keepA) ? keepA : (ser.length > 1 ? ser[1] : ser[0]);
-  els.dvB.value = names.includes(keepB) ? keepB : (ser.length > 1 ? ser[0] : model.ind);
-  const qs = names.slice(0, 9), tb = document.createElement('table'), head = tb.createTHead().insertRow();
-  head.appendChild(document.createElement('th'));
-  qs.forEach(q => { const th = document.createElement('th'); th.textContent = '/d' + q; head.appendChild(th); });
-  dvCells = [];
-  const body = tb.createTBody();
-  qs.forEach((a, r) => {
-    const row = body.insertRow(), th = document.createElement('th');
-    th.textContent = 'd' + a; row.appendChild(th);
-    qs.forEach((b, c) => { const td = row.insertCell(); td.dataset.a = a; td.dataset.b = b; dvCells.push({ td, a: r - 1, b: c - 1 }); });
-  });
-  tb.addEventListener('click', e => {
-    const td = e.target.closest ? e.target.closest('td') : null;
-    if (!td) return;
-    els.dvA.value = td.dataset.a; els.dvB.value = td.dataset.b; dirty = true;
-  });
-  els.dvMat.textContent = '';
-  els.dvMat.appendChild(tb);
+// ----- a section through a field, drawn as a curve -----
+let secOpts = [], secPin = null, secHf = null, pendingSec = null, secGeo = '', secLegKey = '';
+const secOn = new Map();
+function secRange() { const g = model.fld; return { x0: g.x0, x1: g.x0 + (g.nx - 1) * g.dx, y0: g.y0, y1: g.y0 + (g.ny - 1) * g.dy }; }
+const secFmt = v => String(+Number(v).toPrecision(5));
+function secModeUI() {
+  const m = els.secM.value, R = secRange();
+  els.secLn.hidden = m !== 'l'; els.secP.hidden = els.secS.hidden = m === 'l';
+  if (m === 'x') { els.secS.min = R.y0; els.secS.max = R.y1; els.secS.step = model.fld.dy; }
+  if (m === 'y') { els.secS.min = R.x0; els.secS.max = R.x1; els.secS.step = model.fld.dx; }
+  els.secS.value = els.secP.value;
 }
-function ensureDeriv() {
-  const m = model, n = sim.histT.length, nS = m.nS, nH = m.nH;
-  if (!sim.dq) { sim.dq = m.seriesNames.map(() => []); sim.dqN = 0; }
-  const dq = sim.dq;
-  let from = sim.dqN;
-  if (n - from > 6000) {
-    const skip = n - 6000;
-    for (let j = 0; j < dq.length; j++) for (let i = from; i < skip; i++) dq[j][i] = NaN;
-    from = skip;
+function secDefaults() {
+  const R = secRange(), m = els.secM.value;
+  els.secP.value = secFmt(m === 'y' ? (R.x0 + R.x1) / 2 : (R.y0 + R.y1) / 2);
+  els.secX1.value = secFmt(R.x0); els.secY1.value = secFmt(R.y0); els.secX2.value = secFmt(R.x1); els.secY2.value = secFmt(R.y1);
+}
+function secBuild() {
+  const g = model.fld;
+  if (!g) return;
+  const keep = (secOpts[els.secF.selectedIndex] || {}).label;
+  const cxs = model.cxs || new Set();
+  secOpts = [];
+  fvOpts.forEach(o => {
+    if (o.phase) return;
+    if (o.mag) {
+      const base = o.label.slice(1, -1), isC = cxs.has(base);
+      const cu = o.ks.map((k, i) => ({ name: isC ? (i ? 'Im ' : 'Re ') + base : g.names[k], ks: [k], kind: 'v' }));
+      cu.push({ name: o.label, ks: o.ks, kind: 'mag' });
+      if (isC) cu.push({ name: 'arg ' + base, ks: o.ks, kind: 'arg' });
+      secOpts.push({ label: base, text: base + (isC ? ' (complex)' : ' (vector)'), curves: cu });
+    } else if (!o.group && !(/_(re|im)$/.test(o.label) && cxs.has(o.label.replace(/_(re|im)$/, '')))) secOpts.push({ label: o.label, text: o.label, curves: [{ name: o.label, ks: o.ks, kind: 'v' }] });
+  });
+  els.secF.innerHTML = '';
+  secOpts.forEach(o => { const op = document.createElement('option'); op.value = o.label; op.textContent = o.text; els.secF.appendChild(op); });
+  let want = keep;
+  const R = secRange(), gk = [R.x0, R.x1, R.y0, R.y1].join();
+  const ps = pendingSec; pendingSec = null;
+  if (ps) {
+    if (ps.show) want = ps.show;
+    if (ps.mode === 'x' || ps.mode === 'y' || ps.mode === 'l') els.secM.value = ps.mode;
+    secGeo = gk; secDefaults();
+    if (Number.isFinite(ps.pos)) els.secP.value = secFmt(ps.pos);
+    if (Array.isArray(ps.line) && ps.line.length === 4) [els.secX1, els.secY1, els.secX2, els.secY2].forEach((e, i) => { if (Number.isFinite(ps.line[i])) e.value = secFmt(ps.line[i]); });
+    if (ps.off && typeof ps.off === 'object') Object.keys(ps.off).forEach(k => { const o = secOpts.find(q => q.label === k); if (o) secOn.set(k, o.curves.map((c, i) => !(ps.off[k] || []).includes(c.name))); });
+  } else if (gk !== secGeo) { secGeo = gk; secDefaults(); }
+  const i = secOpts.findIndex(o => o.label === want);
+  els.secF.selectedIndex = i >= 0 ? i : 0;
+  secModeUI(); secPin = null; els.secPin.setAttribute('aria-pressed', 'false'); secLegKey = '';
+}
+function secSave() {
+  const o = secOpts[els.secF.selectedIndex];
+  if (!o) return null;
+  const off = {};
+  secOpts.forEach(q => { const on = secOn.get(q.label); if (on && on.some(v => !v)) off[q.label] = q.curves.filter((c, i) => !on[i]).map(c => c.name); });
+  const n = e => parseFloat(e.value) || 0;
+  return { show: o.label, mode: els.secM.value, pos: n(els.secP), line: [n(els.secX1), n(els.secY1), n(els.secX2), n(els.secY2)], off };
+}
+function secOnFor(o) { let on = secOn.get(o.label); if (!on || on.length !== o.curves.length) { on = o.curves.map(c => c.kind !== 'arg'); secOn.set(o.label, on); } return on; }
+function drawSection() {
+  if (!model || !model.fld || els.secCard.hidden || els.secCard.classList.contains('hid')) return;
+  const g = model.fld, o = secOpts[els.secF.selectedIndex];
+  if (!o) return;
+  const num = e => { const v = parseFloat(e.value); return Number.isFinite(v) ? v : 0; }, R = secRange(), m = els.secM.value;
+  let ax, ay, bx, by;
+  if (m === 'x') { ay = by = num(els.secP); ax = R.x0; bx = R.x1; }
+  else if (m === 'y') { ax = bx = num(els.secP); ay = R.y0; by = R.y1; }
+  else { ax = num(els.secX1); ay = num(els.secY1); bx = num(els.secX2); by = num(els.secY2); }
+  const len = Math.hypot(bx - ax, by - ay), M = m === 'x' ? g.nx - 1 : m === 'y' ? g.ny - 1 : Math.max(g.nx, g.ny) * 2;
+  o.curves.forEach(c => c.ks.forEach(k => { if (GPUHOOK.sync) GPUHOOK.sync(k); }));
+  const X = new Float64Array(M + 1), fxs = new Float64Array(M + 1), fys = new Float64Array(M + 1), eps = 1e-9;
+  for (let i = 0; i <= M; i++) {
+    const s = i / M, px = ax + s * (bx - ax), py = ay + s * (by - ay);
+    X[i] = m === 'x' ? px : m === 'y' ? py : s * len;
+    const fx = (px - g.x0) / g.dx, fy = (py - g.y0) / g.dy;
+    fxs[i] = fx >= -eps && fx <= g.nx - 1 + eps && fy >= -eps && fy <= g.ny - 1 + eps ? fx : NaN; fys[i] = fy;
   }
-  if (from >= n) return;
-  const y = new Float64Array(nS), d = new Float64Array(nS), yp = new Float64Array(nS), ym = new Float64Array(nS);
-  const hp = new Float64Array(nH), hm = new Float64Array(nH), env = m.env, h = 1e-6;
-  for (let i = from; i < n; i++) {
-    const t = sim.histT[i];
-    for (let j = 0; j < nS; j++) y[j] = sim.hist[j][i];
-    m.f(t, y, d);
-    for (let j = 0; j < nS; j++) dq[j][i] = d[j];
-    if (nH) {
-      for (let j = 0; j < nS; j++) { yp[j] = y[j] + h * d[j]; ym[j] = y[j] - h * d[j]; }
-      m.snapshot(t + h, yp); for (let q = 0; q < nH; q++) hp[q] = env[m.hBase + q];
-      m.snapshot(t - h, ym); for (let q = 0; q < nH; q++) hm[q] = env[m.hBase + q];
-      for (let q = 0; q < nH; q++) dq[nS + q][i] = (hp[q] - hm[q]) / (2 * h);
+  const bil = (a, i) => {
+    const fx = fxs[i], fy = fys[i];
+    if (!(fx === fx)) return NaN;
+    const i0 = Math.min(g.nx - 2, Math.max(0, Math.floor(fx))), j0 = Math.min(g.ny - 2, Math.max(0, Math.floor(fy))), u = Math.min(1, Math.max(0, fx - i0)), v = Math.min(1, Math.max(0, fy - j0)), c = j0 * g.nx + i0;
+    return (a[c] * (1 - u) + a[c + 1] * u) * (1 - v) + (a[c + g.nx] * (1 - u) + a[c + g.nx + 1] * u) * v;
+  };
+  const ys = o.curves.map(c => {
+    const Y = new Float64Array(M + 1), A = c.ks.map(k => FRT.arr[k]);
+    for (let i = 0; i <= M; i++) {
+      if (c.kind === 'v') Y[i] = bil(A[0], i);
+      else if (c.kind === 'mag') { let q = 0; for (const a of A) { const w = bil(a, i); q += w * w; } Y[i] = Math.sqrt(q); }
+      else Y[i] = Math.atan2(bil(A[1], i), bil(A[0], i));
+    }
+    return Y;
+  });
+  const on = secOnFor(o), lines = [], key = o.label + '|' + m + '|' + [ax, ay, bx, by].join();
+  let lo = Infinity, hi = -Infinity;
+  const scan = Y => { for (let i = 0; i <= M; i++) { const v = Y[i]; if (v < lo) lo = v; if (v > hi) hi = v; } };
+  if (secPin && secPin.key === key) secPin.ys.forEach(p => { lines.push({ X, Y: p.Y, i0: 0, i1: M, color: p.color, alpha: 0.4, dash: [5, 4] }); scan(p.Y); });
+  o.curves.forEach((c, j) => { if (on[j]) { lines.push({ X, Y: ys[j], i0: 0, i1: M, color: theme.series[j % 8] }); scan(ys[j]); } });
+  if (!Number.isFinite(lo) || !Number.isFinite(hi)) { lo = -1; hi = 1; }
+  let pad = (hi - lo) * 0.08;
+  if (pad < 1e-9) pad = Math.max(0.5, Math.abs(hi) * 0.1);
+  const bands = [], sol = solidUnion(model), h = M > 0 ? Math.abs(X[M] - X[0]) / M / 2 : 0;
+  if (sol) {
+    let st = -1;
+    for (let i = 0; i <= M + 1; i++) {
+      const inS = i <= M && fxs[i] === fxs[i] && sol[Math.round(fys[i]) * g.nx + Math.round(fxs[i])];
+      if (inS && st < 0) st = i;
+      if (!inS && st >= 0) { bands.push([Math.min(X[st], X[i - 1]) - h, Math.max(X[st], X[i - 1]) + h]); st = -1; }
     }
   }
-  sim.dqN = n;
-}
-function ratioAt(ai, bi, i) {
-  const a = ai < 0 ? 1 : sim.dq[ai][i], b = bi < 0 ? 1 : sim.dq[bi][i];
-  return Math.abs(b) > 1e-12 ? a / b : NaN;
-}
-function drawDeriv() {
-  if (els.dvCard.classList.contains('hid')) return;
-  ensureDeriv();
-  const names = dvNames(), ai = names.indexOf(els.dvA.value) - 1, bi = names.indexOf(els.dvB.value) - 1;
-  if (names.indexOf(els.dvA.value) < 0 || names.indexOf(els.dvB.value) < 0) return;
-  const T = sim.histT, n = T.length, vsB = els.dvX.value === 'b';
-  if (!n) return;
-  let x0 = 0, x1 = 1, i0 = 0;
-  if (!vsB) {
-    const tmax = T[n - 1];
-    if (win > 0) { x1 = Math.max(win, tmax); x0 = x1 - win; i0 = Math.min(lowerBound(T, x0), n - 1); } else { x0 = 0; x1 = Math.max(tmax, dt * 10); }
-  } else i0 = Math.max(0, n - PHASE_MAX);
-  const stride = Math.max(1, Math.floor((n - i0) / 1500)), X = [], Y = [];
-  const gx = i => (vsB && bi >= 0 ? sim.hist[bi][i] : T[i]);
-  for (let i = i0; i < n; i += stride) { X.push(gx(i)); Y.push(ratioAt(ai, bi, i)); }
-  if ((n - 1 - i0) % stride !== 0) { X.push(gx(n - 1)); Y.push(ratioAt(ai, bi, n - 1)); }
-  const fin = Y.filter(Number.isFinite).sort((a, b) => a - b);
-  let y0 = -1, y1 = 1;
-  if (fin.length) {
-    const lo = fin[Math.floor(fin.length * 0.02)], hi = fin[Math.min(fin.length - 1, Math.floor(fin.length * 0.98))];
-    const pad = (hi - lo) * 0.25 || Math.max(0.5, Math.abs(hi) * 0.2);
-    y0 = lo - pad; y1 = hi + pad;
+  const xa = Math.min(X[0], X[M]), xb = Math.max(X[0], X[M]);
+  const hx = secHf == null ? null : xa + secHf * (xb - xa);
+  const lab = m === 'x' ? o.label + '(x, ' + secFmt(ay) + ')' : m === 'y' ? o.label + '(' + secFmt(ax) + ', y)' : o.label + ' along the line';
+  plot(els.sec, { x0: xa, x1: xb > xa ? xb : xa + 1, y0: lo - pad, y1: hi + pad, lines, bands, vline: hx, xlabel: m === 'x' ? 'x' : m === 'y' ? 'y' : 'distance', ylabel: lab });
+  // legend chips: colour, name and the value under the pointer
+  const lk = o.label + '|' + on.join();
+  if (lk !== secLegKey) {
+    secLegKey = lk; els.secLegend.textContent = '';
+    o.curves.forEach((c, j) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'chip'; b.innerHTML = '<i></i><span></span><b></b>'; b.children[1].textContent = c.name;
+      b.setAttribute('aria-pressed', String(on[j]));
+      b.addEventListener('click', () => { on[j] = !on[j]; secLegKey = ''; dirty = true; });
+      els.secLegend.appendChild(b);
+    });
+    const hint = document.createElement('span'); hint.className = 'hint'; hint.textContent = 'hover the plot to read values'; els.secLegend.appendChild(hint);
   }
-  if (vsB) {
-    let xa = Infinity, xb = -Infinity;
-    X.forEach(v => { if (Number.isFinite(v)) { if (v < xa) xa = v; if (v > xb) xb = v; } });
-    if (!(xb > xa)) { xa -= 0.5; xb += 0.5; }
-    const px = (xb - xa) * 0.05; x0 = xa - px; x1 = xb + px;
-  }
-  plot(els.dv, { x0, x1, y0, y1, lines: [{ X, Y, i0: 0, i1: X.length - 1, color: theme.series[3] }], xlabel: vsB ? els.dvB.value : model.ind, ylabel: '' });
-  els.dvVal.textContent = 'd' + els.dvA.value + '/d' + els.dvB.value + ' = ' + fmtVal(ratioAt(ai, bi, n - 1));
-  const now = performance.now();
-  if (!els.dvMat.hidden && now - dvLast > 250) {
-    dvLast = now;
-    dvCells.forEach(c => { c.td.textContent = fmtVal(ratioAt(c.a, c.b, n - 1)); });
-  }
+  const idx = hx == null || M < 1 ? -1 : Math.max(0, Math.min(M, Math.round((hx - X[0]) / (X[M] - X[0] || 1) * M)));
+  o.curves.forEach((c, j) => { const b = els.secLegend.children[j]; if (!b) return; b.style.setProperty('--c', theme.series[j % 8]); b.lastChild.textContent = idx < 0 ? '' : fmtVal(ys[j][idx]); });
+  secLast = { key, ys, on, o };
 }
-['dvA', 'dvB', 'dvX'].forEach(k => els[k].addEventListener('change', () => { dirty = true; }));
-els.dvTog.addEventListener('click', () => {
-  const open = els.dvMat.hidden;
-  els.dvMat.hidden = !open; els.dvTog.setAttribute('aria-expanded', String(open));
-  dvLast = 0; dirty = true;
+let secLast = null;
+['secF', 'secP', 'secX1', 'secY1', 'secX2', 'secY2'].forEach(k => els[k].addEventListener('input', () => { if (k === 'secP') els.secS.value = els.secP.value; secLegKey = ''; dirty = true; }));
+els.secS.addEventListener('input', () => { els.secP.value = secFmt(els.secS.value); dirty = true; });
+els.secM.addEventListener('change', () => { secDefaults(); secModeUI(); secPin = null; els.secPin.setAttribute('aria-pressed', 'false'); dirty = true; });
+els.secPin.addEventListener('click', () => {
+  if (secPin) { secPin = null; } else if (secLast) secPin = { key: secLast.key, ys: secLast.o.curves.map((c, j) => ({ Y: Float64Array.from(secLast.ys[j]), color: theme.series[j % 8] })).filter((p, j) => secLast.on[j]) };
+  els.secPin.setAttribute('aria-pressed', String(!!secPin)); dirty = true;
 });
+els.sec.addEventListener('pointermove', e => { const r = els.sec.getBoundingClientRect(), f = (e.clientX - r.left - 48) / (r.width - 62); secHf = f >= 0 && f <= 1 ? f : null; dirty = true; });
+els.sec.addEventListener('pointerleave', () => { secHf = null; dirty = true; });
 
 // ----- save and load -----
 function saveJSON() {
@@ -5085,6 +5132,7 @@ function saveJSON() {
     settings: {
       dt, speed, window: win, trail, joinPoints: link, view: viewMode, cameraBox: viewMode === 'auto' ? null : camBox,
       fieldView: model && model.fld ? { show: (fvOpts[els.fvSel.selectedIndex] || {}).label || null, arrows: els.fvArrows.checked, range: parseFloat(els.fvScale.value) || 0 } : null,
+      section: model && model.fld ? secSave() : null,
       show: model ? model.seriesNames.filter((n, j) => enabled[j]) : [], phase: [els.px.value, els.py.value], fields: fieldOn,
       typeset: Object.assign({ derivatives: els.notation.value }, texOpts(), { hide: undefined, hidden: [...texHidden] })
     }
@@ -5119,6 +5167,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !els.ioMod
 
 // ----- window controls: hide, fullscreen, resize -----
 const ICON_HIDE = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 6l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const ICON_POP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="2" y="3" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="8" width="5" height="4" rx=".8" fill="currentColor"/></svg>';
 const ICON_FULL = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 6V3h3M13 6V3h-3M3 10v3h3M13 10v3h-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function resetCard(card) {
   card.classList.remove('sized', 'hid');
@@ -5138,6 +5187,51 @@ function setMax(card, on) {
   }
   dirty = true;
 }
+// ----- floating window (Document Picture-in-Picture, Chromium browsers only) -----
+const PIP_OK = typeof window.documentPictureInPicture !== 'undefined' && !!window.documentPictureInPicture && typeof window.documentPictureInPicture.requestWindow === 'function';
+let pipCur = null;
+async function popOut(card) {
+  const btn = card.querySelector('.wbtn.pop');
+  if (pipCur) {
+    const was = pipCur.card;
+    pipCur.win.close();
+    if (was === card) return;
+    await new Promise(r => setTimeout(r, 60));
+  }
+  if (card.classList.contains('max')) setMax(card, false);
+  const r = card.getBoundingClientRect();
+  let win;
+  try {
+    win = await window.documentPictureInPicture.requestWindow({ width: Math.round(Math.max(380, Math.min(900, r.width))), height: Math.round(Math.max(280, Math.min(720, r.height + 30))) });
+  } catch (e) { if (btn) btn.title = 'Could not open the floating window: ' + e.message; return; }
+  const doc = win.document, root = document.documentElement;
+  const syncTheme = () => { const t = root.getAttribute('data-theme'); if (t) doc.documentElement.setAttribute('data-theme', t); else doc.documentElement.removeAttribute('data-theme'); };
+  syncTheme();
+  document.head.querySelectorAll('style, link[rel="stylesheet"]').forEach(n => doc.head.appendChild(n.cloneNode(true)));
+  const mo = new MutationObserver(() => { syncTheme(); readTheme(true); dirty = true; });
+  mo.observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+  const mark = document.createComment('popped out');
+  card.before(mark);
+  card.classList.add('pip');
+  doc.body.appendChild(card);
+  const ro = win.ResizeObserver ? new win.ResizeObserver(() => { dirty = true; }) : null;
+  if (ro) card.querySelectorAll('canvas').forEach(c => ro.observe(c));
+  win.addEventListener('resize', () => { dirty = true; });
+  // a hidden main tab stops its own frames, so the floating window keeps the simulation running
+  const tick = () => { if (document.hidden) frame(performance.now()); win.requestAnimationFrame(tick); };
+  win.requestAnimationFrame(tick);
+  pipCur = { win, card };
+  if (btn) { btn.setAttribute('aria-pressed', 'true'); btn.title = 'Bring back into the page'; }
+  win.addEventListener('pagehide', () => {
+    mo.disconnect(); if (ro) ro.disconnect();
+    card.classList.remove('pip');
+    if (mark.parentNode) mark.replaceWith(card);
+    if (pipCur && pipCur.win === win) pipCur = null;
+    if (btn) { btn.setAttribute('aria-pressed', 'false'); btn.title = 'Pop out into a floating window'; }
+    dirty = true;
+  });
+  dirty = true;
+}
 function initWindows() {
   document.querySelectorAll('.stage .card').forEach(card => {
     const cap = card.querySelector('.cap');
@@ -5152,6 +5246,12 @@ function initWindows() {
     bHide.setAttribute('aria-pressed', 'false');
     const box = document.createElement('div');
     box.className = 'wbtns'; box.append(bHide, bFull); cap.appendChild(box);
+    if (PIP_OK) {
+      const bPop = mk('pop', 'Pop out into a floating window', ICON_POP);
+      bPop.setAttribute('aria-pressed', 'false');
+      bPop.addEventListener('click', () => popOut(card));
+      box.insertBefore(bPop, bHide);
+    }
     bHide.addEventListener('click', () => {
       const h = card.classList.toggle('hid');
       bHide.setAttribute('aria-pressed', String(h)); bHide.title = h ? 'Show' : 'Hide';
@@ -5212,11 +5312,13 @@ function frame(now) {
     }
     if (dirty) { dirty = false; render(); }
   }
-  requestAnimationFrame(frame);
+  schedFrame();
 }
+let rafId = 0;
+function schedFrame() { if (!rafId) rafId = requestAnimationFrame(t => { rafId = 0; frame(t); }); }
 if (window.ResizeObserver) {
   const ro = new ResizeObserver(() => { dirty = true; });
-  [els.scene, els.ts, els.phase, els.dv].forEach(c => ro.observe(c));
+  [els.scene, els.ts, els.phase, els.sec].forEach(c => ro.observe(c));
 }
 try {
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
@@ -5228,7 +5330,7 @@ try {
 readTheme(true);
 initWindows();
 loadPreset(presetFromHash() || PRESETS[0]);
-requestAnimationFrame(frame);
+schedFrame();
 </script>
 
 </body></html>
